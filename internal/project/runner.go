@@ -16,18 +16,9 @@ func NewRunner() *Runner {
 type Runner struct {
 }
 
-type logWriter struct {
-	logger *log.Logger
-}
-
-func (w logWriter) Write(data []byte) (int, error) {
-	w.logger.Print(string(data))
-	return len(data), nil
-}
-
 func (r *Runner) Run(ctx context.Context, path string) (*Process, error) {
 	output := logWriter{
-		logger: log.New(log.Writer(), "program ", log.Ltime|log.Lmsgprefix),
+		logger: log.New(log.Writer(), "[program]: ", log.Ltime|log.Lmsgprefix),
 	}
 	cmd := exec.CommandContext(ctx, path)
 	cmd.Stdout = output

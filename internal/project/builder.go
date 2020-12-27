@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,7 +32,13 @@ func (b *Builder) Build(ctx context.Context) (string, error) {
 	fileName := fmt.Sprintf("executable-%s", uuid.NewV4())
 	path := filepath.Join(b.tempDir, fileName)
 
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", path, b.runDir)
+	output := logWriter{
+		logger: log.New(log.Writer(), "[compiler]: ", log.Ltime|log.Lmsgprefix),
+	}
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", path, "./")
+	cmd.Dir = b.runDir
+	cmd.Stdout = output
+	cmd.Stderr = output
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to run go build: %w", err)
 	}
