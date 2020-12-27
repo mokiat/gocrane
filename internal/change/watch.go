@@ -12,7 +12,16 @@ import (
 	"github.com/mokiat/gocrane/internal/events"
 )
 
-func NewWatcher(includePaths, excludePaths []string, verbose bool) *Watcher {
+var defaultExcludeGlobs map[string]struct{}
+
+func init() {
+	defaultExcludeGlobs = make(map[string]struct{})
+	defaultExcludeGlobs[".git"] = struct{}{}
+	defaultExcludeGlobs[".DS_Store"] = struct{}{}
+	defaultExcludeGlobs[".vscode"] = struct{}{}
+}
+
+func NewWatcher(includePaths, excludePaths, excludeGlobs []string, verbose bool) *Watcher {
 	includePathSet := make(map[string]struct{})
 	for _, path := range includePaths {
 		includePathSet[filepath.Clean(path)] = struct{}{}
@@ -23,9 +32,18 @@ func NewWatcher(includePaths, excludePaths []string, verbose bool) *Watcher {
 		excludePathSet[filepath.Clean(path)] = struct{}{}
 	}
 
+	excludeGlobSet := make(map[string]struct{})
+	for _, glob := range excludeGlobs {
+		excludeGlobSet[glob] = struct{}{}
+	}
+	for glob := range defaultExcludeGlobs {
+		excludeGlobSet[glob] = struct{}{}
+	}
+
 	return &Watcher{
 		includePaths: includePathSet,
 		excludePaths: excludePathSet,
+		excludeGlobs: excludeGlobSet,
 		verbose:      verbose,
 	}
 }
@@ -33,6 +51,7 @@ func NewWatcher(includePaths, excludePaths []string, verbose bool) *Watcher {
 type Watcher struct {
 	includePaths map[string]struct{}
 	excludePaths map[string]struct{}
+	excludeGlobs map[string]struct{}
 	verbose      bool
 }
 
@@ -49,6 +68,25 @@ func (w *Watcher) Run(ctx context.Context, changeEventQueue events.ChangeQueue) 
 		changeQueue: changeEventQueue,
 	}
 	return execution.Run(ctx)
+}
+
+func (w *Watcher) isExcludedPath(path string) bool {
+	for excludedPath := range w.excludePaths {
+		if strings.HasPrefix(path, excludedPath) {
+			return true
+		}
+	}
+
+	segments := strings.Split(path, string(filepath.Separator))
+	for excludeGlob := range w.excludeGlobs {
+		for _, segment := range segments {
+			match, err := filepath.Match(excludeGlob, segment)
+			if err == nil && match {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type watcherExecution struct {
@@ -96,10 +134,8 @@ func (e *watcherExecution) considerPath(path string) {
 }
 
 func (e *watcherExecution) considerDir(path string) {
-	for excludedPath := range e.watcher.excludePaths {
-		if strings.HasPrefix(path, excludedPath) {
-			return
-		}
+	if e.watcher.isExcludedPath(path) {
+		return
 	}
 
 	if err := e.fsWatcher.Add(path); err != nil {
@@ -120,9 +156,11 @@ func (e *watcherExecution) processFSEvent(event fsnotify.Event) {
 		e.considerPath(path)
 	}
 	if !isEventType(event, fsnotify.Chmod) {
-		e.recordEvent(events.Change{
-			Paths: []string{path},
-		})
+		if !e.watcher.isExcludedPath(path) {
+			e.recordEvent(events.Change{
+				Paths: []string{path},
+			})
+		}
 	}
 }
 

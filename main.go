@@ -34,7 +34,12 @@ func main() {
 			&cli.StringSliceFlag{
 				Name:    "exclude",
 				Aliases: []string{"e"},
-				Usage:   "folders to exclude from watching.",
+				Usage:   "folders to exclude from watching",
+			},
+			&cli.StringSliceFlag{
+				Name:    "glob-exclude",
+				Aliases: []string{"ge"},
+				Usage:   "glob(s) to exclude from watching",
 			},
 			&cli.StringFlag{
 				Name:    "run",
@@ -53,6 +58,7 @@ func main() {
 				Verbose:      c.Bool("verbose"),
 				IncluedPaths: c.StringSlice("path"),
 				ExcludePaths: c.StringSlice("exclude"),
+				ExcludeGlobs: c.StringSlice("glob-exclude"),
 				RunDir:       c.String("run"),
 				CachedBuild:  c.String("cache"),
 			})

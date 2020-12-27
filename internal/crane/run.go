@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"time"
 
 	"github.com/mokiat/gocrane/internal/change"
@@ -16,12 +17,20 @@ type Settings struct {
 	Verbose      bool
 	IncluedPaths []string
 	ExcludePaths []string
+	ExcludeGlobs []string
 	RunDir       string
 	CachedBuild  string
 }
 
 func Run(ctx context.Context, settings Settings) error {
 	log.Println("starting...")
+
+	for _, glob := range settings.ExcludeGlobs {
+		if _, err := filepath.Match(glob, ""); err != nil {
+			return fmt.Errorf("invalid glob exclude pattern %q: %w", glob, err)
+		}
+	}
+
 	defer log.Println("stopped.")
 
 	group, groupCtx := errgroup.WithContext(ctx)
@@ -32,7 +41,7 @@ func Run(ctx context.Context, settings Settings) error {
 	batchChangeEventQueue := make(events.ChangeQueue)
 	buildEventQueue := make(events.BuildQueue)
 
-	watcher := change.NewWatcher(settings.IncluedPaths, settings.ExcludePaths, settings.Verbose)
+	watcher := change.NewWatcher(settings.IncluedPaths, settings.ExcludePaths, settings.ExcludeGlobs, settings.Verbose)
 	batcher := change.NewBatcher(time.Second)
 	builder, err := project.NewBuilder(settings.RunDir)
 	if err != nil {
