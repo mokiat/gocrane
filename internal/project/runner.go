@@ -43,8 +43,8 @@ func (p *Process) Stop() error {
 	if err != nil {
 		return fmt.Errorf("failed to wait for program to stop: %w", err)
 	}
-	if !state.Exited() {
-		return fmt.Errorf("program did not exit")
+	if !state.Success() {
+		log.Printf("warning: program exited with non-zero exit code: %d", state.ExitCode())
 	}
 	return nil
 }
