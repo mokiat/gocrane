@@ -2,8 +2,9 @@
 
 GoCrane is a tool to help run and rebuild applications running in a docker composed environment.
 
-This tool is heavily inspired by [go-watcher](https://github.com/canthefason/go-watcher) but makes a few improvements (verbose printing, automatic new directory watching, using cached builds). Normally I would prefer to contribute to the original project but I needed
-to troubleshoot a problem and found it easier/faster to roll out my own.
+This tool is heavily inspired by [go-watcher](https://github.com/canthefason/go-watcher) but makes a few improvements (verbose printing, automatic new directory watching, using cached builds). Normally I would prefer to contribute to the original project but I needed to troubleshoot a problem and found it easier/faster to roll out my own.
+
+**WARNING:** This project is still in early Alpha stage and is subject to breaking changes (e.g. flag names).
 
 ## User's Guide
 
@@ -15,10 +16,10 @@ GO111MODULE=on go get github.com/mokiat/gocrane
 
 Alternatively, you can include the executable in your Docker image as follows:
 
-```docker
+```dockerfile
 FROM mokiat/gocrane:latest AS gocrane
 
-FROM ...
+FROM ... # your base image here
 # your Dockerfile stuff here
 COPY --from=gocrane /bin/gocrane /bin/gocrane
 ```
