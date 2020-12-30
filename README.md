@@ -1,5 +1,7 @@
 # GoCrane
 
+![master status badge](https://github.com/mokiat/gocrane/workflows/Master/badge.svg)
+
 GoCrane is a tool to help run and rebuild applications running in a docker composed environment.
 
 This tool is heavily inspired by [go-watcher](https://github.com/canthefason/go-watcher) but makes a few improvements (verbose printing, automatic new directory watching, using cached builds). Normally I would prefer to contribute to the original project but I needed to troubleshoot a problem and found it easier/faster to roll out my own.
