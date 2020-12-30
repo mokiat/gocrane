@@ -21,36 +21,42 @@ func main() {
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "verbose",
-				Aliases: []string{"v"},
 				Usage:   "verbose logging",
+				Aliases: []string{"v"},
+				EnvVars: []string{"GOCRANE_VERBOSE"},
 				Value:   false,
 			},
 			&cli.StringSliceFlag{
 				Name:    "path",
-				Aliases: []string{"p"},
 				Usage:   "folder(s) to watch for changes",
+				Aliases: []string{"p"},
+				EnvVars: []string{"GOCRANE_PATHS"},
 				Value:   cli.NewStringSlice("./"),
 			},
 			&cli.StringSliceFlag{
 				Name:    "exclude",
-				Aliases: []string{"e"},
 				Usage:   "folders to exclude from watching",
+				Aliases: []string{"e"},
+				EnvVars: []string{"GOCRANE_EXCLUDES"},
 			},
 			&cli.StringSliceFlag{
 				Name:    "glob-exclude",
-				Aliases: []string{"ge"},
 				Usage:   "glob(s) to exclude from watching",
+				Aliases: []string{"ge"},
+				EnvVars: []string{"GOCRANE_GLOB_EXCLUDES"},
 			},
 			&cli.StringFlag{
 				Name:    "run",
-				Aliases: []string{"r"},
 				Usage:   "directory to build and run",
+				Aliases: []string{"r"},
+				EnvVars: []string{"GOCRANE_RUN"},
 				Value:   "./",
 			},
 			&cli.StringFlag{
 				Name:    "cache",
-				Aliases: []string{"c"},
 				Usage:   "prebuilt executable to use initially",
+				Aliases: []string{"c"},
+				EnvVars: []string{"GOCRANE_CACHE"},
 			},
 		},
 		Action: func(c *cli.Context) error {
