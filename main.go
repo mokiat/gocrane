@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mokiat/gocrane/internal/crane"
+	"github.com/mokiat/gocrane/internal/flag"
 	"github.com/urfave/cli/v2"
 )
 
@@ -59,6 +60,12 @@ func main() {
 				Aliases: []string{"c"},
 				EnvVars: []string{"GOCRANE_CACHE"},
 			},
+			&cli.GenericFlag{
+				Name:    "args",
+				Usage:   "arguments to use when running the built executable",
+				EnvVars: []string{"GOCRANE_ARGS"},
+				Value:   &flag.ShlexStringSlice{},
+			},
 			&cli.DurationFlag{
 				Name:    "shutdown-timeout",
 				Usage:   "amount of time to wait for program to exit gracefully",
@@ -74,6 +81,7 @@ func main() {
 				ExcludeGlobs:    c.StringSlice("glob-exclude"),
 				RunDir:          c.String("run"),
 				CachedBuild:     c.String("cache"),
+				Args:            flag.ShlexStrings(c.Generic("args")),
 				ShutdownTimeout: c.Duration("shutdown-timeout"),
 			})
 		},

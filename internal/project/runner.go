@@ -9,11 +9,14 @@ import (
 	"syscall"
 )
 
-func NewRunner() *Runner {
-	return &Runner{}
+func NewRunner(args []string) *Runner {
+	return &Runner{
+		args: args,
+	}
 }
 
 type Runner struct {
+	args []string
 }
 
 func (r *Runner) Run(ctx context.Context, path string) (*Process, error) {
@@ -22,7 +25,7 @@ func (r *Runner) Run(ctx context.Context, path string) (*Process, error) {
 	}
 
 	runCtx, killFunc := context.WithCancel(ctx)
-	cmd := exec.CommandContext(runCtx, path)
+	cmd := exec.CommandContext(runCtx, path, r.args...)
 	cmd.Stdout = output
 	cmd.Stderr = output
 	if err := cmd.Start(); err != nil {

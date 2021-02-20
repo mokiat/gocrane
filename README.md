@@ -37,6 +37,7 @@ The tool supports the following flags for more custom configuration:
 * `--glob-exclude, -ge` - Specifies a glob pattern for files and directories that should be excluded. Can be specified multiple times. The pattern works only for a single path segment (e.g. `vendor`, `.DS_Store`, `*_test.go`)
 * `--run, -r` - Specifies the folder that includes the `main` package to be run.
 * `--cache, -c` - Specifies a pre-build executable to use the first time. This is useful when using `gocrane` with Docker images that have the built executable available to avoid unnecessary initial builds on startup.
+* `--args` - Specifies arguments to pass when starting the built executable.
 
 By default `gocrane` excludes the following glob patterns:
 
