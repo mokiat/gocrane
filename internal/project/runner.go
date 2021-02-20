@@ -9,11 +9,14 @@ import (
 	"syscall"
 )
 
-func NewRunner() *Runner {
-	return &Runner{}
+func NewRunner(args []string) *Runner {
+	return &Runner{
+		args: args,
+	}
 }
 
 type Runner struct {
+	args []string
 }
 
 func (r *Runner) Run(ctx context.Context, path string) (*Process, error) {
@@ -25,6 +28,7 @@ func (r *Runner) Run(ctx context.Context, path string) (*Process, error) {
 	cmd := exec.CommandContext(runCtx, path)
 	cmd.Stdout = output
 	cmd.Stderr = output
+	cmd.Args = append(cmd.Args, r.args...)
 	if err := cmd.Start(); err != nil {
 		killFunc() // otherwise linter complains
 		return nil, fmt.Errorf("failed to start program: %w", err)
