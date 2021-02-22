@@ -156,7 +156,7 @@ func createRunFlow(
 			if runningProcess == nil {
 				return nil
 			}
-			log.Printf("stopping running process...")
+			log.Printf("stopping running process (timeout: %s)...", shutdownTimeout)
 			shutdownCtx, shutdownFunc := context.WithTimeout(ctx, shutdownTimeout)
 			defer shutdownFunc()
 			if err := runningProcess.Stop(shutdownCtx); err != nil {

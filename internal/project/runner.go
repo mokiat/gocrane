@@ -46,6 +46,7 @@ func (p *Process) Stop(ctx context.Context) error {
 	go func() {
 		select {
 		case <-ctx.Done():
+			log.Println("killing program forcefully as it failed to shutdown gracefully")
 			p.kill()
 		case <-stopped:
 		}
