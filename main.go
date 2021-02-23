@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/mokiat/gocrane/internal/crane"
 	"github.com/urfave/cli/v2"
@@ -58,15 +59,22 @@ func main() {
 				Aliases: []string{"c"},
 				EnvVars: []string{"GOCRANE_CACHE"},
 			},
+			&cli.DurationFlag{
+				Name:    "shutdown-timeout",
+				Usage:   "amount of time to wait for program to exit gracefully",
+				Value:   5 * time.Second,
+				EnvVars: []string{"GOCRANE_SHUTDOWN_TIMEOUT"},
+			},
 		},
 		Action: func(c *cli.Context) error {
 			return crane.Run(c.Context, crane.Settings{
-				Verbose:      c.Bool("verbose"),
-				IncluedPaths: c.StringSlice("path"),
-				ExcludePaths: c.StringSlice("exclude"),
-				ExcludeGlobs: c.StringSlice("glob-exclude"),
-				RunDir:       c.String("run"),
-				CachedBuild:  c.String("cache"),
+				Verbose:         c.Bool("verbose"),
+				IncluedPaths:    c.StringSlice("path"),
+				ExcludePaths:    c.StringSlice("exclude"),
+				ExcludeGlobs:    c.StringSlice("glob-exclude"),
+				RunDir:          c.String("run"),
+				CachedBuild:     c.String("cache"),
+				ShutdownTimeout: c.Duration("shutdown-timeout"),
 			})
 		},
 	}

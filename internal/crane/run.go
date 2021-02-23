@@ -14,12 +14,13 @@ import (
 )
 
 type Settings struct {
-	Verbose      bool
-	IncluedPaths []string
-	ExcludePaths []string
-	ExcludeGlobs []string
-	RunDir       string
-	CachedBuild  string
+	Verbose         bool
+	IncluedPaths    []string
+	ExcludePaths    []string
+	ExcludeGlobs    []string
+	RunDir          string
+	CachedBuild     string
+	ShutdownTimeout time.Duration
 }
 
 func Run(ctx context.Context, settings Settings) error {
@@ -95,6 +96,7 @@ func Run(ctx context.Context, settings Settings) error {
 		groupCtx,
 		runner,
 		buildEventQueue,
+		settings.ShutdownTimeout,
 	))
 
 	return group.Wait()
@@ -130,6 +132,7 @@ func createRunFlow(
 	ctx context.Context,
 	runner *project.Runner,
 	buildEventQueue events.BuildQueue,
+	shutdownTimeout time.Duration,
 ) func() error {
 
 	return func() error {
@@ -153,8 +156,10 @@ func createRunFlow(
 			if runningProcess == nil {
 				return nil
 			}
-			log.Printf("stopping running process...")
-			if err := runningProcess.Stop(); err != nil {
+			log.Printf("stopping running process (timeout: %s)...", shutdownTimeout)
+			shutdownCtx, shutdownFunc := context.WithTimeout(ctx, shutdownTimeout)
+			defer shutdownFunc()
+			if err := runningProcess.Stop(shutdownCtx); err != nil {
 				return fmt.Errorf("failed to stop process: %w", err)
 			}
 			log.Printf("successfully stopped running process.")
