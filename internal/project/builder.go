@@ -12,7 +12,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 )
 
-func NewBuilder(runDir string) (*Builder, error) {
+func NewBuilder(runDir string, args []string) (*Builder, error) {
 	tempDir, err := ioutil.TempDir("", "gocrane-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
@@ -20,12 +20,14 @@ func NewBuilder(runDir string) (*Builder, error) {
 	return &Builder{
 		runDir:  runDir,
 		tempDir: tempDir,
+		args:    args,
 	}, nil
 }
 
 type Builder struct {
 	runDir  string
 	tempDir string
+	args    []string
 }
 
 func (b *Builder) Build(ctx context.Context) (string, error) {
@@ -35,7 +37,10 @@ func (b *Builder) Build(ctx context.Context) (string, error) {
 	output := logWriter{
 		logger: log.New(log.Writer(), "[compiler]: ", log.Ltime|log.Lmsgprefix),
 	}
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", path, "./")
+
+	args := append([]string{"build"}, b.args...)
+	args = append(args, "-o", path, "./")
+	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = b.runDir
 	cmd.Stdout = output
 	cmd.Stderr = output
