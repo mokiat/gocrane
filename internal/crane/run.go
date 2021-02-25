@@ -20,6 +20,7 @@ type Settings struct {
 	ExcludeGlobs    []string
 	RunDir          string
 	CachedBuild     string
+	Args            []string
 	ShutdownTimeout time.Duration
 }
 
@@ -49,7 +50,7 @@ func Run(ctx context.Context, settings Settings) error {
 		return fmt.Errorf("failed to create builder: %w", err)
 	}
 	defer builder.Cleanup()
-	runner := project.NewRunner()
+	runner := project.NewRunner(settings.Args)
 
 	// Trigger an initial build by faking a change if we don't have
 	// a cached executable to use.
