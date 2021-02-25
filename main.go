@@ -66,6 +66,12 @@ func main() {
 				EnvVars: []string{"GOCRANE_ARGS"},
 				Value:   &flag.ShlexStringSlice{},
 			},
+			&cli.GenericFlag{
+				Name:    "build-args",
+				Usage:   "arguments to use when building the executable",
+				EnvVars: []string{"GOCRANE_BUILD_ARGS"},
+				Value:   &flag.ShlexStringSlice{},
+			},
 			&cli.DurationFlag{
 				Name:    "shutdown-timeout",
 				Usage:   "amount of time to wait for program to exit gracefully",
@@ -82,6 +88,7 @@ func main() {
 				RunDir:          c.String("run"),
 				CachedBuild:     c.String("cache"),
 				Args:            flag.ShlexStrings(c.Generic("args")),
+				BuildArgs:       flag.ShlexStrings(c.Generic("build-args")),
 				ShutdownTimeout: c.Duration("shutdown-timeout"),
 			})
 		},

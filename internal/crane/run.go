@@ -21,6 +21,7 @@ type Settings struct {
 	RunDir          string
 	CachedBuild     string
 	Args            []string
+	BuildArgs       []string
 	ShutdownTimeout time.Duration
 }
 
@@ -45,7 +46,7 @@ func Run(ctx context.Context, settings Settings) error {
 
 	watcher := change.NewWatcher(settings.IncluedPaths, settings.ExcludePaths, settings.ExcludeGlobs, settings.Verbose)
 	batcher := change.NewBatcher(time.Second)
-	builder, err := project.NewBuilder(settings.RunDir)
+	builder, err := project.NewBuilder(settings.RunDir, settings.BuildArgs)
 	if err != nil {
 		return fmt.Errorf("failed to create builder: %w", err)
 	}

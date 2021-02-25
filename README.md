@@ -38,6 +38,7 @@ The tool supports the following flags for more custom configuration:
 * `--run, -r` - Specifies the folder that includes the `main` package to be run.
 * `--cache, -c` - Specifies a pre-build executable to use the first time. This is useful when using `gocrane` with Docker images that have the built executable available to avoid unnecessary initial builds on startup.
 * `--args` - Specifies arguments to pass when starting the built executable.
+* `--build-args` - Specifies arguments to pass to `go build` (when compiling the executable)
 
 By default `gocrane` excludes the following glob patterns:
 
