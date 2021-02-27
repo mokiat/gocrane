@@ -3,6 +3,7 @@ package change
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -97,13 +98,13 @@ type watcherExecution struct {
 
 func (e *watcherExecution) Run(ctx context.Context) error {
 	for path := range e.watcher.includePaths {
-		filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+		filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 			path = filepath.Clean(path)
 			if err != nil {
 				e.recordError(fmt.Errorf("failed to traverse %q: %w", path, err))
 				return filepath.SkipDir
 			}
-			if info.IsDir() {
+			if d.IsDir() {
 				e.considerDir(path)
 			}
 			return nil
