@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/urfave/cli/v2"
 
@@ -43,24 +44,54 @@ type buildConfig struct {
 }
 
 func build(ctx context.Context, cfg buildConfig) error {
-	log.Println("building application...")
+	log.Println("building binary...")
+	builder := project.NewBuilder(cfg.MainDir, cfg.BuildArgs.Value(), cfg.BinaryFile)
+	if err := builder.Build(ctx); err != nil {
+		return fmt.Errorf("failed to build binary: %w", err)
+	}
+	log.Println("binary successfully built.")
 
-	layout, err := project.Explore(
-		cfg.Sources.Value(),
-		cfg.Resources.Value(),
-		cfg.Excludes.Value(),
-	)
+	if cfg.DigestFile != "" {
+		log.Println("analyzing project...")
+		layout, err := project.Explore(
+			cfg.Sources.Value(),
+			cfg.Resources.Value(),
+			cfg.Excludes.Value(),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to explore project: %w", err)
+		}
+		if cfg.Verbose {
+			logLayout(layout)
+		}
+
+		log.Println("calculating digest...")
+		dig, err := layout.Digest()
+		if err != nil {
+			return fmt.Errorf("failed to calculate digest: %w", err)
+		}
+		log.Printf("digest: %s", dig)
+
+		log.Println("persisting digest...")
+		if err := writeDigest(cfg.DigestFile, dig); err != nil {
+			return fmt.Errorf("failed to write digest: %w", err)
+		}
+		log.Println("digest successfully persisted.")
+	}
+
+	return nil
+}
+
+func writeDigest(file, digest string) error {
+	f, err := os.Create(file)
 	if err != nil {
-		return fmt.Errorf("failed to explore project: %w", err)
+		return fmt.Errorf("failed to create file %q: %w", file, err)
 	}
-	if cfg.Verbose {
-		logLayout(layout)
+	defer f.Close()
+
+	if _, err := f.WriteString(digest); err != nil {
+		return fmt.Errorf("failed to write to file: %w", err)
 	}
-	dig, err := layout.Digest()
-	if err != nil {
-		return fmt.Errorf("failed to calculate digest: %w", err)
-	}
-	log.Printf("digest: %s", dig)
 	return nil
 }
 

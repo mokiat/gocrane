@@ -43,6 +43,10 @@ func (s *ShlexStringSlice) Set(value string) error {
 	return nil
 }
 
+func (s *ShlexStringSlice) Value() []string {
+	return s.slice
+}
+
 func (s *ShlexStringSlice) String() string {
 	return strings.Join(s.slice, ",")
 }
