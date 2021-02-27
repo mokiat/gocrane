@@ -45,3 +45,12 @@ func (f *Filter) Match(file string) bool {
 	}
 	return false
 }
+
+func (f *Filter) MatchAll(files ...string) bool {
+	for _, file := range files {
+		if !f.Match(file) {
+			return false
+		}
+	}
+	return true
+}

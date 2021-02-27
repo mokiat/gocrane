@@ -7,53 +7,24 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/mokiat/gocrane/internal/events"
+	"github.com/mokiat/gocrane/internal/project"
 )
 
-var defaultExcludeGlobs map[string]struct{}
-
-func init() {
-	defaultExcludeGlobs = make(map[string]struct{})
-	defaultExcludeGlobs[".git"] = struct{}{}
-	defaultExcludeGlobs[".DS_Store"] = struct{}{}
-	defaultExcludeGlobs[".vscode"] = struct{}{}
-}
-
-func NewWatcher(includePaths, excludePaths, excludeGlobs []string, verbose bool) *Watcher {
-	includePathSet := make(map[string]struct{})
-	for _, path := range includePaths {
-		includePathSet[filepath.Clean(path)] = struct{}{}
-	}
-
-	excludePathSet := make(map[string]struct{})
-	for _, path := range excludePaths {
-		excludePathSet[filepath.Clean(path)] = struct{}{}
-	}
-
-	excludeGlobSet := make(map[string]struct{})
-	for _, glob := range excludeGlobs {
-		excludeGlobSet[glob] = struct{}{}
-	}
-	for glob := range defaultExcludeGlobs {
-		excludeGlobSet[glob] = struct{}{}
-	}
-
+func NewWatcher(verbose bool, dirs project.FileSet, filter *project.Filter) *Watcher {
 	return &Watcher{
-		includePaths: includePathSet,
-		excludePaths: excludePathSet,
-		excludeGlobs: excludeGlobSet,
-		verbose:      verbose,
+		dirs:    dirs,
+		filter:  filter,
+		verbose: verbose,
 	}
 }
 
 type Watcher struct {
-	includePaths map[string]struct{}
-	excludePaths map[string]struct{}
-	excludeGlobs map[string]struct{}
-	verbose      bool
+	dirs    project.FileSet
+	filter  *project.Filter
+	verbose bool
 }
 
 func (w *Watcher) Run(ctx context.Context, changeEventQueue events.ChangeQueue) error {
@@ -72,32 +43,17 @@ func (w *Watcher) Run(ctx context.Context, changeEventQueue events.ChangeQueue) 
 }
 
 func (w *Watcher) isExcludedPath(path string) bool {
-	for excludedPath := range w.excludePaths {
-		if strings.HasPrefix(path, excludedPath) {
-			return true
-		}
-	}
-
-	segments := strings.Split(path, string(filepath.Separator))
-	for excludeGlob := range w.excludeGlobs {
-		for _, segment := range segments {
-			match, err := filepath.Match(excludeGlob, segment)
-			if err == nil && match {
-				return true
-			}
-		}
-	}
-	return false
+	return w.filter.Match(path)
 }
 
 type watcherExecution struct {
 	watcher     *Watcher
-	changeQueue events.ChangeQueue
 	fsWatcher   *fsnotify.Watcher
+	changeQueue events.ChangeQueue
 }
 
 func (e *watcherExecution) Run(ctx context.Context) error {
-	for path := range e.watcher.includePaths {
+	for path := range e.watcher.dirs {
 		filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
 			path = filepath.Clean(path)
 			if err != nil {

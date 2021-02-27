@@ -101,6 +101,17 @@ func newRunArgs(target *flag.ShlexStringSlice) cli.Flag {
 	}
 }
 
+func newBatchDurationFlag(target *time.Duration) cli.Flag {
+	return &cli.DurationFlag{
+		Name:        "batch-duration",
+		Usage:       "amount of time to accumulate change events before triggering a build",
+		Value:       time.Second,
+		Aliases:     []string{"bd"},
+		EnvVars:     []string{"GOCRANE_BATCH_DURATION"},
+		Destination: target,
+	}
+}
+
 func newShutdownTimeoutFlag(target *time.Duration) cli.Flag {
 	return &cli.DurationFlag{
 		Name:        "shutdown-timeout",

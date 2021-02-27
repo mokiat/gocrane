@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"path/filepath"
 )
 
 func NewBuilder(runDir string, args []string, destination string) *Builder {
@@ -26,8 +27,13 @@ func (b *Builder) Build(ctx context.Context) error {
 		logger: log.New(log.Writer(), "[compiler]: ", log.Ltime|log.Lmsgprefix),
 	}
 
+	absDestination, err := filepath.Abs(b.destination)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute destination for %q: %w", b.destination, err)
+	}
+
 	args := append([]string{"build"}, b.args...)
-	args = append(args, "-o", b.destination, "./")
+	args = append(args, "-o", absDestination, "./")
 
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = b.runDir
