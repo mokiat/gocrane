@@ -1,9 +1,14 @@
 package project
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"hash"
+	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
+	"sort"
 )
 
 var defaultExcludes []string
@@ -22,14 +27,35 @@ func init() {
 	}
 }
 
+type FileSet map[string]struct{}
+
+func (s FileSet) SortedList() []string {
+	result := make([]string, 0, len(s))
+	for file := range s {
+		result = append(result, file)
+	}
+	sort.Strings(result)
+	return result
+}
+
 type Layout struct {
 	Omitted        map[string]error
 	ExcludeFilter  *Filter
-	ResourceFiles  map[string]struct{}
-	ResourceDirs   map[string]struct{}
+	ResourceFiles  FileSet
+	ResourceDirs   FileSet
 	ResourceFilter *Filter
-	SourceFiles    map[string]struct{}
-	SourceDirs     map[string]struct{}
+	SourceFiles    FileSet
+	SourceDirs     FileSet
+}
+
+func (l *Layout) Digest() (string, error) {
+	dig := sha256.New()
+	for _, file := range l.SourceFiles.SortedList() {
+		if err := writeFileDigest(file, dig); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("%x", dig.Sum(nil)), nil
 }
 
 func Explore(sources, resources, excludes []string) (*Layout, error) {
@@ -111,4 +137,17 @@ func traverse(roots map[string]struct{}, fn traverseFunc) {
 			return nil
 		})
 	}
+}
+
+func writeFileDigest(file string, h hash.Hash) error {
+	f, err := os.Open(file)
+	if err != nil {
+		return fmt.Errorf("failed to open %q file: %w", file, err)
+	}
+	defer f.Close()
+	fmt.Fprint(h, len(file), file)
+	if _, err := io.Copy(h, f); err != nil {
+		return fmt.Errorf("failed to channel file through hash: %w", err)
+	}
+	return nil
 }

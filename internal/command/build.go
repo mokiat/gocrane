@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sort"
 
 	"github.com/urfave/cli/v2"
 
@@ -57,6 +56,11 @@ func build(ctx context.Context, cfg buildConfig) error {
 	if cfg.Verbose {
 		logLayout(layout)
 	}
+	dig, err := layout.Digest()
+	if err != nil {
+		return fmt.Errorf("failed to calculate digest: %w", err)
+	}
+	log.Printf("digest: %s", dig)
 	return nil
 }
 
@@ -71,31 +75,22 @@ func logLayout(layout *project.Layout) {
 	}
 
 	log.Printf("found %d resource files", len(layout.ResourceFiles))
-	for _, file := range fileSetToSortedSlice(layout.ResourceFiles) {
+	for _, file := range layout.ResourceFiles.SortedList() {
 		log.Printf("resource file: %s", file)
 	}
 
 	log.Printf("found %d resource directories", len(layout.ResourceDirs))
-	for _, dir := range fileSetToSortedSlice(layout.ResourceDirs) {
+	for _, dir := range layout.ResourceDirs.SortedList() {
 		log.Printf("resource dir: %s", dir)
 	}
 
 	log.Printf("found %d source directories", len(layout.SourceDirs))
-	for _, dir := range fileSetToSortedSlice(layout.SourceDirs) {
+	for _, dir := range layout.SourceDirs.SortedList() {
 		log.Printf("source dir: %s", dir)
 	}
 
 	log.Printf("found %d source files", len(layout.SourceFiles))
-	for _, file := range fileSetToSortedSlice(layout.SourceFiles) {
+	for _, file := range layout.SourceFiles.SortedList() {
 		log.Printf("source file: %s", file)
 	}
-}
-
-func fileSetToSortedSlice(files map[string]struct{}) []string {
-	result := make([]string, 0, len(files))
-	for file := range files {
-		result = append(result, file)
-	}
-	sort.Strings(result)
-	return result
 }
