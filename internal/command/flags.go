@@ -3,8 +3,9 @@ package command
 import (
 	"time"
 
-	"github.com/mokiat/gocrane/internal/flag"
 	"github.com/urfave/cli/v2"
+
+	"github.com/mokiat/gocrane/internal/flag"
 )
 
 func newVerboseFlag(target *bool) cli.Flag {
@@ -35,7 +36,6 @@ func newResourcesFlag(target *cli.StringSlice) cli.Flag {
 		Usage:       "folder(s) and/or file(s) that are required for running the application",
 		Aliases:     []string{"res"},
 		EnvVars:     []string{"GOCRANE_RESOURCES"},
-		Value:       cli.NewStringSlice("./"),
 		Destination: target,
 	}
 }
@@ -54,7 +54,6 @@ func newMainFlag(target *string) cli.Flag {
 	return &cli.StringFlag{
 		Name:        "main",
 		Usage:       "directory that contains the main package to build",
-		Required:    true,
 		EnvVars:     []string{"GOCRANE_MAIN"},
 		Value:       "./",
 		Destination: target,

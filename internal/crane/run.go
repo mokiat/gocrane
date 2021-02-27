@@ -1,7 +1,5 @@
 package crane
 
-import "context"
-
 // import (
 // 	"context"
 // 	"fmt"
@@ -14,10 +12,6 @@ import "context"
 // 	"github.com/mokiat/gocrane/internal/project"
 // 	"golang.org/x/sync/errgroup"
 // )
-
-func Run(ctx context.Context, settings *RunSettings) error {
-	return nil
-}
 
 // func Run(ctx context.Context, settings Settings) error {
 // 	log.Println("starting...")
