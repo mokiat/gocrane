@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"hash"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -140,14 +139,13 @@ func traverse(roots map[string]struct{}, fn traverseFunc) {
 }
 
 func writeFileDigest(file string, h hash.Hash) error {
-	f, err := os.Open(file)
+	stat, err := os.Stat(file)
 	if err != nil {
-		return fmt.Errorf("failed to open %q file: %w", file, err)
+		return fmt.Errorf("failed to state file %q: %w", file, err)
 	}
-	defer f.Close()
-	fmt.Fprint(h, len(file), file)
-	if _, err := io.Copy(h, f); err != nil {
-		return fmt.Errorf("failed to channel file through hash: %w", err)
-	}
+	// Note: Don't include millisecond precision, as that seems to differ between
+	// host and client machine (in some cases it is not included).
+	const timeFormat = "2006/01/02 15:04:05"
+	fmt.Fprint(h, len(file), file, stat.ModTime().UTC().Format(timeFormat), stat.Size())
 	return nil
 }
