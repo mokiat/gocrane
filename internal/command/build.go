@@ -20,11 +20,14 @@ func Build() *cli.Command {
 			newVerboseFlag(&cfg.Verbose),
 			newSourcesFlag(&cfg.Sources),
 			newResourcesFlag(&cfg.Resources),
+			newIncludesFlag(&cfg.Includes),
 			newExcludesFlag(&cfg.Excludes),
 			newMainFlag(&cfg.MainDir),
 			newBinaryFlag(&cfg.BinaryFile, true),
 			newDigestFlag(&cfg.DigestFile),
 			newBuildArgs(&cfg.BuildArgs),
+			newNoDefaultExcludes(&cfg.NoDefaultExcludes),
+			newNoDefaultResources(&cfg.NoDefaultResources),
 		},
 		Action: func(c *cli.Context) error {
 			return build(c.Context, cfg)
@@ -33,14 +36,17 @@ func Build() *cli.Command {
 }
 
 type buildConfig struct {
-	Verbose    bool
-	Sources    cli.StringSlice
-	Resources  cli.StringSlice
-	Excludes   cli.StringSlice
-	MainDir    string
-	BinaryFile string
-	DigestFile string
-	BuildArgs  flag.ShlexStringSlice
+	Verbose            bool
+	Sources            cli.StringSlice
+	Resources          cli.StringSlice
+	Includes           cli.StringSlice
+	Excludes           cli.StringSlice
+	MainDir            string
+	BinaryFile         string
+	DigestFile         string
+	BuildArgs          flag.ShlexStringSlice
+	NoDefaultExcludes  bool
+	NoDefaultResources bool
 }
 
 func build(ctx context.Context, cfg buildConfig) error {
@@ -53,10 +59,19 @@ func build(ctx context.Context, cfg buildConfig) error {
 
 	if cfg.DigestFile != "" {
 		log.Println("analyzing project...")
+		excludes := cfg.Excludes.Value()
+		if !cfg.NoDefaultExcludes {
+			excludes = addDefaultExcludes(excludes)
+		}
+		resources := cfg.Resources.Value()
+		if !cfg.NoDefaultResources {
+			resources = addDefaultResources(resources)
+		}
 		layout, err := project.Explore(
 			cfg.Sources.Value(),
-			cfg.Resources.Value(),
-			cfg.Excludes.Value(),
+			project.NewFilter(resources),
+			project.NewFilter(cfg.Includes.Value()),
+			project.NewFilter(excludes),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to explore project: %w", err)
@@ -99,7 +114,7 @@ func logLayout(layout *project.Layout) {
 	log.Printf("omitted %d files or folders", len(layout.Omitted))
 	for file, err := range layout.Omitted {
 		if err != nil {
-			log.Printf("omitted: %s; reason: %s", file, err)
+			log.Printf("omitted: %s (%s)", file, err)
 		} else {
 			log.Printf("omitted: %s", file)
 		}

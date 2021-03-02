@@ -10,20 +10,15 @@ import (
 	"sort"
 )
 
-var defaultExcludes []string
-
-func glob(pattern string) string {
-	return fmt.Sprintf("*%c%s", filepath.Separator, pattern)
-}
-
-func init() {
-	defaultExcludes = []string{
-		glob(".git"),
-		glob(".github"),
-		glob(".gitignore"),
-		glob(".DS_Store"),
-		glob(".vscode"),
+func CombineFileSets(a, b FileSet) FileSet {
+	result := make(FileSet, len(a)+len(b))
+	for k, v := range a {
+		result[k] = v
 	}
+	for k, v := range b {
+		result[k] = v
+	}
+	return result
 }
 
 type FileSet map[string]struct{}
@@ -57,29 +52,14 @@ func (l *Layout) Digest() (string, error) {
 	return fmt.Sprintf("%x", dig.Sum(nil)), nil
 }
 
-func Explore(sources, resources, excludes []string) (*Layout, error) {
-	uniqueExcludes := make(map[string]struct{})
-	for _, pattern := range excludes {
-		uniqueExcludes[pattern] = struct{}{}
-	}
-	for _, pattern := range defaultExcludes {
-		uniqueExcludes[pattern] = struct{}{}
-	}
-	excludeFilter := NewFilter(uniqueExcludes)
-
-	uniqueResources := make(map[string]struct{})
-	for _, path := range resources {
-		uniqueResources[filepath.Clean(path)] = struct{}{}
-	}
-	resourcesFilter := NewFilter(uniqueResources)
-
+func Explore(sources []string, resourcesFilter, includesFilter, excludesFilter *Filter) (*Layout, error) {
 	uniqueSources := make(map[string]struct{})
 	for _, path := range sources {
 		uniqueSources[filepath.Clean(path)] = struct{}{}
 	}
 
 	layout := &Layout{
-		ExcludeFilter:  excludeFilter,
+		ExcludeFilter:  excludesFilter,
 		ResourceFilter: resourcesFilter,
 		Omitted:        make(map[string]error),
 		ResourceDirs:   make(map[string]struct{}),
@@ -88,13 +68,13 @@ func Explore(sources, resources, excludes []string) (*Layout, error) {
 		SourceFiles:    make(map[string]struct{}),
 	}
 
-	traverse(uniqueResources, func(path string, d fs.DirEntry, err error) {
+	traverse(resourcesFilter.Paths(), func(path string, d fs.DirEntry, err error) {
 		if err != nil {
 			layout.Omitted[path] = fmt.Errorf("failed to traverse: %w", err)
 			return
 		}
-		if excludeFilter.Match(path) {
-			layout.Omitted[path] = nil
+		if excludesFilter.Match(path) {
+			layout.Omitted[path] = fmt.Errorf("is excluded")
 			return
 		}
 		if d.IsDir() {
@@ -109,13 +89,20 @@ func Explore(sources, resources, excludes []string) (*Layout, error) {
 			layout.Omitted[path] = fmt.Errorf("failed to traverse: %w", err)
 			return
 		}
-		if excludeFilter.Match(path) || resourcesFilter.Match(path) {
-			layout.Omitted[path] = nil
+		if resourcesFilter.Match(path) {
+			return
+		}
+		if excludesFilter.Match(path) {
+			layout.Omitted[path] = fmt.Errorf("is excluded")
 			return
 		}
 		if d.IsDir() {
 			layout.SourceDirs[path] = struct{}{}
 		} else {
+			if !includesFilter.Empty() && !includesFilter.Match(path) {
+				layout.Omitted[path] = fmt.Errorf("not included")
+				return
+			}
 			layout.SourceFiles[path] = struct{}{}
 		}
 	})

@@ -6,6 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/mokiat/gocrane/internal/flag"
+	"github.com/mokiat/gocrane/internal/project"
 )
 
 func newVerboseFlag(target *bool) cli.Flag {
@@ -36,6 +37,17 @@ func newResourcesFlag(target *cli.StringSlice) cli.Flag {
 		Usage:       "folder(s) and/or file(s) that are required for running the application",
 		Aliases:     []string{"res"},
 		EnvVars:     []string{"GOCRANE_RESOURCES"},
+		Destination: target,
+	}
+}
+
+func newIncludesFlag(target *cli.StringSlice) cli.Flag {
+	return &cli.StringSliceFlag{
+		Name:        "include",
+		Usage:       "folder(s) and/or file(s) that are of interest for building or running the application",
+		Aliases:     []string{"in"},
+		EnvVars:     []string{"GOCRANE_INCLUDES"},
+		Value:       cli.NewStringSlice(project.Glob("*.go")),
 		Destination: target,
 	}
 }
@@ -119,6 +131,26 @@ func newShutdownTimeoutFlag(target *time.Duration) cli.Flag {
 		Value:       5 * time.Second,
 		Aliases:     []string{"st"},
 		EnvVars:     []string{"GOCRANE_SHUTDOWN_TIMEOUT"},
+		Destination: target,
+	}
+}
+
+func newNoDefaultExcludes(target *bool) cli.Flag {
+	return &cli.BoolFlag{
+		Name:        "--no-default-excludes",
+		Usage:       "don't use exclude presets",
+		EnvVars:     []string{"GOCRANE_NO_DEFAULT_EXCLUDES"},
+		Value:       false,
+		Destination: target,
+	}
+}
+
+func newNoDefaultResources(target *bool) cli.Flag {
+	return &cli.BoolFlag{
+		Name:        "--no-default-resources",
+		Usage:       "don't use resource presets",
+		EnvVars:     []string{"GOCRANE_NO_DEFAULT_RESOURCES"},
+		Value:       false,
 		Destination: target,
 	}
 }
