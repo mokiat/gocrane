@@ -83,7 +83,7 @@ func newDigestFlag(target *string) cli.Flag {
 
 func newBuildArgs(target *flag.ShlexStringSlice) cli.Flag {
 	return &cli.GenericFlag{
-		Name:    "build-arg",
+		Name:    "build-args",
 		Usage:   "arguments to use when building the executable",
 		Aliases: []string{"ba"},
 		EnvVars: []string{"GOCRANE_BUILD_ARGS"},
@@ -93,7 +93,7 @@ func newBuildArgs(target *flag.ShlexStringSlice) cli.Flag {
 
 func newRunArgs(target *flag.ShlexStringSlice) cli.Flag {
 	return &cli.GenericFlag{
-		Name:    "run-arg",
+		Name:    "run-args",
 		Usage:   "arguments to use when running the built executable",
 		Aliases: []string{"ra"},
 		EnvVars: []string{"GOCRANE_RUN_ARGS"},
