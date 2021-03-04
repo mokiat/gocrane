@@ -14,8 +14,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mokiat/gocrane/internal/change"
+	"github.com/mokiat/gocrane/internal/command/flag"
 	"github.com/mokiat/gocrane/internal/events"
-	"github.com/mokiat/gocrane/internal/flag"
 	"github.com/mokiat/gocrane/internal/project"
 )
 

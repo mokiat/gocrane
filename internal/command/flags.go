@@ -5,7 +5,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/mokiat/gocrane/internal/flag"
+	"github.com/mokiat/gocrane/internal/command/flag"
 	"github.com/mokiat/gocrane/internal/project"
 )
 
