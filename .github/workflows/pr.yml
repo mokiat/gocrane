@@ -21,3 +21,9 @@ jobs:
         env:
           GO111MODULE: on
         run: go build -o gocrane .
+
+      - name: Get Ginkgo
+        run: go install github.com/onsi/ginkgo/ginkgo@latest
+
+      - name: Run Tests
+        run: $GOBIN/ginkgo -r --race --randomizeAllSpecs --randomizeSuites
