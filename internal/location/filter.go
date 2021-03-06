@@ -58,3 +58,24 @@ func OrFilter(filters ...Filter) Filter {
 		return false
 	})
 }
+
+// AndFilter returns a filter that matches a path should all of its
+// sub-filters match that path.
+func AndFilter(filters ...Filter) Filter {
+	return FilterFunc(func(path Path) bool {
+		for _, filter := range filters {
+			if !filter.Match(path) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// NotFilter returns a filter that matches a path should its sub-filter
+// not match it.
+func NotFilter(filter Filter) Filter {
+	return FilterFunc(func(path Path) bool {
+		return !filter.Match(path)
+	})
+}

@@ -11,13 +11,35 @@ import (
 )
 
 var _ = Describe("Filter", func() {
-	var filter location.Filter
+	var (
+		path              location.Path
+		firstFilterMatch  bool
+		firstFilter       location.Filter
+		secondFilterMatch bool
+		secondFilter      location.Filter
+		filter            location.Filter
+	)
+
+	BeforeEach(func() {
+		path = location.MustParsePath(filepath.FromSlash("/a/b/c"))
+
+		firstFilterMatch = false
+		firstFilter = location.FilterFunc(func(p location.Path) bool {
+			Expect(p).To(Equal(path))
+			return firstFilterMatch
+		})
+
+		secondFilterMatch = false
+		secondFilter = location.FilterFunc(func(p location.Path) bool {
+			Expect(p).To(Equal(path))
+			return secondFilterMatch
+		})
+	})
 
 	Describe("GlobFilter", func() {
 		BeforeEach(func() {
 			glob := location.MustParseGlob(location.WithGlobPrefix("*.go"))
 			filter = location.GlobFilter(glob)
-
 		})
 
 		DescribeTable("Match",
@@ -50,29 +72,7 @@ var _ = Describe("Filter", func() {
 	})
 
 	Describe("OrFilter", func() {
-		var (
-			path              location.Path
-			firstFilterMatch  bool
-			firstFilter       location.Filter
-			secondFilterMatch bool
-			secondFilter      location.Filter
-		)
-
 		BeforeEach(func() {
-			path = location.MustParsePath(filepath.FromSlash("/a/b/c"))
-
-			firstFilterMatch = false
-			firstFilter = location.FilterFunc(func(p location.Path) bool {
-				Expect(p).To(Equal(path))
-				return firstFilterMatch
-			})
-
-			secondFilterMatch = false
-			secondFilter = location.FilterFunc(func(p location.Path) bool {
-				Expect(p).To(Equal(path))
-				return secondFilterMatch
-			})
-
 			filter = location.OrFilter(firstFilter, secondFilter)
 		})
 
@@ -89,4 +89,36 @@ var _ = Describe("Filter", func() {
 		)
 	})
 
+	Describe("AndFilter", func() {
+		BeforeEach(func() {
+			filter = location.AndFilter(firstFilter, secondFilter)
+		})
+
+		DescribeTable("Match",
+			func(firstMatch, secondMatch, expected bool) {
+				firstFilterMatch = firstMatch
+				secondFilterMatch = secondMatch
+				Expect(filter.Match(path)).To(Equal(expected))
+			},
+			Entry("none matches", false, false, false),
+			Entry("one matches", false, true, false),
+			Entry("another matches", true, false, false),
+			Entry("all match", true, true, true),
+		)
+	})
+
+	Describe("NotFilter", func() {
+		BeforeEach(func() {
+			filter = location.NotFilter(firstFilter)
+		})
+
+		DescribeTable("Match",
+			func(match, expected bool) {
+				firstFilterMatch = match
+				Expect(filter.Match(path)).To(Equal(expected))
+			},
+			Entry("subfilter matches", true, false),
+			Entry("subfilter does not match", false, true),
+		)
+	})
 })
