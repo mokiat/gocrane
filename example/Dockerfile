@@ -5,10 +5,8 @@ COPY --from=gocrane /bin/gocrane /bin/gocrane
 COPY . /src/project
 WORKDIR /src/project
 
-ENV GOCRANE_SOURCES='./'
 ENV GOCRANE_MAIN='./cmd/example'
 ENV GOCRANE_BINARY='/bin/example'
-ENV GOCRANE_DIGEST='/bin/example.sha256'
-RUN gocrane build
+RUN gocrane build -v
 
-CMD ["gocrane", "run"]
+CMD ["gocrane", "run", "-v"]

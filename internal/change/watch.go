@@ -3,17 +3,15 @@ package change
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"log"
-	"os"
 	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/mokiat/gocrane/internal/events"
-	"github.com/mokiat/gocrane/internal/project"
+	"github.com/mokiat/gocrane/internal/location"
 )
 
-func NewWatcher(verbose bool, dirs project.FileSet, filter *project.Filter) *Watcher {
+func NewWatcher(verbose bool, dirs []string, filter location.Filter) *Watcher {
 	return &Watcher{
 		dirs:    dirs,
 		filter:  filter,
@@ -22,8 +20,8 @@ func NewWatcher(verbose bool, dirs project.FileSet, filter *project.Filter) *Wat
 }
 
 type Watcher struct {
-	dirs    project.FileSet
-	filter  *project.Filter
+	dirs    []string
+	filter  location.Filter
 	verbose bool
 }
 
@@ -38,35 +36,22 @@ func (w *Watcher) Run(ctx context.Context, changeEventQueue events.ChangeQueue) 
 		watcher:     w,
 		fsWatcher:   watcher,
 		changeQueue: changeEventQueue,
+		filter:      w.filter,
 	}
 	return execution.Run(ctx)
-}
-
-func (w *Watcher) isExcludedPath(path string) bool {
-	return w.filter.Match(path)
 }
 
 type watcherExecution struct {
 	watcher     *Watcher
 	fsWatcher   *fsnotify.Watcher
 	changeQueue events.ChangeQueue
+	filter      location.Filter
 }
 
 func (e *watcherExecution) Run(ctx context.Context) error {
-	for path := range e.watcher.dirs {
-		filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
-			path = filepath.Clean(path)
-			if err != nil {
-				e.recordError(fmt.Errorf("failed to traverse %q: %w", path, err))
-				return filepath.SkipDir
-			}
-			if d.IsDir() {
-				e.considerDir(path)
-			}
-			return nil
-		})
+	for _, dir := range e.watcher.dirs {
+		e.considerDir(dir)
 	}
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -79,22 +64,10 @@ func (e *watcherExecution) Run(ctx context.Context) error {
 	}
 }
 
-func (e *watcherExecution) considerPath(path string) {
-	info, err := os.Stat(path)
-	if err != nil {
-		e.recordError(fmt.Errorf("failed to stat %q: %w", path, err))
-		return
-	}
-	if info.IsDir() {
-		e.considerDir(path)
-	}
-}
-
 func (e *watcherExecution) considerDir(path string) {
-	if e.watcher.isExcludedPath(path) {
+	if !e.filter.Match(path) {
 		return
 	}
-
 	if err := e.fsWatcher.Add(path); err != nil {
 		e.recordError(fmt.Errorf("failed to watch %q: %w", path, err))
 	} else {
@@ -108,16 +81,21 @@ func (e *watcherExecution) processFSEvent(event fsnotify.Event) {
 	if e.watcher.verbose {
 		log.Printf("filesystem watch event: %s\n", event)
 	}
-	path := filepath.Clean(event.Name)
+	path, err := filepath.Abs(event.Name)
+	if err != nil {
+		e.recordError(fmt.Errorf("failed to conver path to absolute %q: %w", event.Name, err))
+		return
+	}
+	if !e.filter.Match(path) {
+		return
+	}
 	if isEventType(event, fsnotify.Create) {
-		e.considerPath(path)
+		e.considerDir(path)
 	}
 	if !isEventType(event, fsnotify.Chmod) {
-		if !e.watcher.isExcludedPath(path) {
-			e.recordEvent(events.Change{
-				Paths: []string{path},
-			})
-		}
+		e.recordEvent(events.Change{
+			Paths: []string{path},
+		})
 	}
 }
 

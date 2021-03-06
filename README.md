@@ -29,9 +29,12 @@ GO111MODULE=on go get github.com/mokiat/gocrane
 
 Use can use `gocrane --help` to get detailed information on the supported commands and flags.
 
-By default `gocrane` ignores the following files and folders:
-* `.git`
-* `.github`
-* `.gitignore`
-* `.DS_Store`
-* `.vscode`
+### Understanding File Configuration
+
+There are a number of configurations that are vital to gocrane working fast and correctly. The most important is probably the `include` flag. It should contain files and folders that you would like gocrane to keep watch of. This does not necessary mean that gocrane would trigger a build or a restart if one of those file changes (this is controlled with additional flags) but indicates to gocrane which files it should explore and keep in mind.
+
+The `exclude` flag on the other hand can be used to indicate files, directories, or globs that should be ignored at all cost. This is useful if you would not like gocrane to explore deep folders that are not related to the project (e.g. `.git`). By default gocrane ignores a number of common non-project directories.
+
+The `source` flag can be used to indicate which paths should be considered relevant for building the project. When gocrane detects a change to one of those files, it will trigger a rebuild of the project. Keep in mind that the expressions specified in this flag need to include paths that are part of `include`, otherwise they would not be considered. By default gocrane uses `*.go` but you could chnage that to include additional ones, if for example you are using file embedding.
+
+The `resource` flag on the other hand indicates which paths should be considered relevant for restarting the project. For exmaple, if your project is an HTTP server that serves files from a project folder, you may wont to mark that folder as a resource, so that if there is a change to it, gocrane would trigger a restart, instead of a build (unless the change also matches the `source` flag).

@@ -2,15 +2,10 @@ package location
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
-var globPrefix string
-
-func init() {
-	globPrefix = fmt.Sprintf("*%c", filepath.Separator)
-}
+const globPrefix = "*/"
 
 // AppearsGlob checks whether the specified pattern is a candidate to be
 // a glob. In general, that means it has the glob prefix, which is
@@ -21,53 +16,7 @@ func AppearsGlob(pattern string) bool {
 	return strings.HasPrefix(pattern, globPrefix)
 }
 
-// WithGlobPrefix prepends the glob prefix to the specified pattern.
-func WithGlobPrefix(pattern string) string {
+// Glob prepends the glob prefix to the specified pattern.
+func Glob(pattern string) string {
 	return fmt.Sprintf("%s%s", globPrefix, pattern)
-}
-
-// MustParseGlob is similar to ParseGlob except that it panics in
-// case there is an error.
-func MustParseGlob(pattern string) Glob {
-	glob, err := ParseGlob(pattern)
-	if err != nil {
-		panic(fmt.Errorf("failed to parse glob: %w", err))
-	}
-	return glob
-}
-
-// ParseGlob attempts to parse the specified pattern as a location Glob.
-// One prerequisite is that it has to have the glob prefix. Check the
-// AppearsGlob function for more information.
-// Once the prefix is trimmed, the pattern must comply with the rules
-// specified in `filepath.Match`. Keep in mind that patterns are evaluated
-// only against individual Path segments.
-func ParseGlob(pattern string) (Glob, error) {
-	if !AppearsGlob(pattern) {
-		return Glob{}, fmt.Errorf("pattern lacks necessary prefix")
-	}
-	trimmedPattern := strings.TrimPrefix(pattern, globPrefix)
-	if _, err := filepath.Match(trimmedPattern, ""); err != nil {
-		return Glob{}, fmt.Errorf("specified pattern is not valid: %w", err)
-	}
-	return Glob{
-		pattern: trimmedPattern,
-	}, nil
-}
-
-// Glob represents a pattern that can be checked against a path segment.
-type Glob struct {
-	pattern string
-}
-
-// Match returns whether the specified Path segment matches the Glob
-// pattern.
-func (g Glob) Match(segment string) bool {
-	match, _ := filepath.Match(g.pattern, segment)
-	return match
-}
-
-// String returns a string representation of this Glob.
-func (g Glob) String() string {
-	return WithGlobPrefix(g.pattern)
 }

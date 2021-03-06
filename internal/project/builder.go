@@ -10,24 +10,22 @@ import (
 	"github.com/mokiat/gocrane/internal/logutil"
 )
 
-func NewBuilder(runDir string, args []string, destination string) *Builder {
+func NewBuilder(runDir string, args []string) *Builder {
 	return &Builder{
-		runDir:      runDir,
-		args:        args,
-		destination: destination,
+		runDir: runDir,
+		args:   args,
 	}
 }
 
 type Builder struct {
-	runDir      string
-	args        []string
-	destination string
+	runDir string
+	args   []string
 }
 
-func (b *Builder) Build(ctx context.Context) error {
-	absDestination, err := filepath.Abs(b.destination)
+func (b *Builder) Build(ctx context.Context, destination string) error {
+	absDestination, err := filepath.Abs(destination)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute destination for %q: %w", b.destination, err)
+		return fmt.Errorf("failed to get absolute destination for %q: %w", destination, err)
 	}
 
 	args := append([]string{"build"}, b.args...)

@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("Filter", func() {
 	var (
-		path              location.Path
+		path              string
 		firstFilterMatch  bool
 		firstFilter       location.Filter
 		secondFilterMatch bool
@@ -21,16 +21,16 @@ var _ = Describe("Filter", func() {
 	)
 
 	BeforeEach(func() {
-		path = location.MustParsePath(filepath.FromSlash("/a/b/c"))
+		path = filepath.FromSlash("/a/b/c")
 
 		firstFilterMatch = false
-		firstFilter = location.FilterFunc(func(p location.Path) bool {
+		firstFilter = location.FilterFunc(func(p string) bool {
 			Expect(p).To(Equal(path))
 			return firstFilterMatch
 		})
 
 		secondFilterMatch = false
-		secondFilter = location.FilterFunc(func(p location.Path) bool {
+		secondFilter = location.FilterFunc(func(p string) bool {
 			Expect(p).To(Equal(path))
 			return secondFilterMatch
 		})
@@ -38,13 +38,12 @@ var _ = Describe("Filter", func() {
 
 	Describe("GlobFilter", func() {
 		BeforeEach(func() {
-			glob := location.MustParseGlob(location.WithGlobPrefix("*.go"))
-			filter = location.GlobFilter(glob)
+			filter = location.GlobFilter(location.Glob("*.go"))
 		})
 
 		DescribeTable("Match",
 			func(p string, expected bool) {
-				path := location.MustParsePath(filepath.FromSlash(p))
+				path := filepath.FromSlash(p)
 				Expect(filter.Match(path)).To(Equal(expected))
 			},
 			Entry("no segments match", "/a/b/c/d", false),
@@ -55,13 +54,13 @@ var _ = Describe("Filter", func() {
 
 	Describe("PathFilter", func() {
 		BeforeEach(func() {
-			path := location.MustParsePath(filepath.FromSlash("/a/b/c"))
-			filter = location.NewPathFilter(path)
+			path := filepath.FromSlash("/a/b/c")
+			filter = location.PathFilter(path)
 		})
 
 		DescribeTable("Match",
 			func(p string, expected bool) {
-				path := location.MustParsePath(filepath.FromSlash(p))
+				path := filepath.FromSlash(p)
 				Expect(filter.Match(path)).To(Equal(expected))
 			},
 			Entry("equal strings", "/a/b/c", true),

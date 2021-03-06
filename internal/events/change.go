@@ -1,12 +1,21 @@
 package events
 
-import "context"
+import (
+	"context"
+)
 
 type Change struct {
 	Paths []string
 }
 
 type ChangeQueue chan Change
+
+func (q ChangeQueue) Push(ctx context.Context, event Change) {
+	select {
+	case <-ctx.Done():
+	case q <- event:
+	}
+}
 
 func (q ChangeQueue) Pop(ctx context.Context, ptr *Change) bool {
 	select {

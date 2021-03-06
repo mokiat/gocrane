@@ -8,121 +8,122 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/mokiat/gocrane/internal/location"
 )
 
-func CombineFileSets(a, b FileSet) FileSet {
-	result := make(FileSet, len(a)+len(b))
-	for k, v := range a {
-		result[k] = v
-	}
-	for k, v := range b {
-		result[k] = v
-	}
-	return result
-}
-
-type FileSet map[string]struct{}
-
-func (s FileSet) SortedList() []string {
-	result := make([]string, 0, len(s))
-	for file := range s {
-		result = append(result, file)
-	}
-	sort.Strings(result)
-	return result
-}
-
 type Layout struct {
-	Omitted        map[string]error
-	ExcludeFilter  *Filter
-	ResourceFiles  FileSet
-	ResourceDirs   FileSet
-	ResourceFilter *Filter
-	SourceFiles    FileSet
-	SourceDirs     FileSet
+	Omitted         map[string]error
+	WatchDirs       []string
+	SourceFiles     []string
+	IncludeFilter   location.Filter
+	ExcludeFilter   location.Filter
+	SourcesFilter   location.Filter
+	ResourcesFilter location.Filter
 }
 
 func (l *Layout) Digest() (string, error) {
 	dig := sha256.New()
-	for _, file := range l.SourceFiles.SortedList() {
-		if err := writeFileDigest(file, dig); err != nil {
+	for _, file := range l.SourceFiles {
+		if err := writeFileDigest(string(file), dig); err != nil {
 			return "", err
 		}
 	}
 	return fmt.Sprintf("%x", dig.Sum(nil)), nil
 }
 
-func Explore(sources []string, resourcesFilter, includesFilter, excludesFilter *Filter) (*Layout, error) {
-	uniqueSources := make(map[string]struct{})
-	for _, path := range sources {
-		uniqueSources[filepath.Clean(path)] = struct{}{}
-	}
+func Explore(includes, excludes, sources, resources []string) *Layout {
+	var omitted map[string]error
 
-	layout := &Layout{
-		ExcludeFilter:  excludesFilter,
-		ResourceFilter: resourcesFilter,
-		Omitted:        make(map[string]error),
-		ResourceDirs:   make(map[string]struct{}),
-		ResourceFiles:  make(map[string]struct{}),
-		SourceDirs:     make(map[string]struct{}),
-		SourceFiles:    make(map[string]struct{}),
-	}
+	includeFilter := buildFilter(includes, omitted)
+	excludeFilter := buildFilter(excludes, omitted)
+	sourcesFilter := buildFilter(sources, omitted)
+	resourcesFilter := buildFilter(resources, omitted)
 
-	traverse(resourcesFilter.Paths(), func(path string, d fs.DirEntry, err error) {
+	uniqueDirs := make(map[string]struct{})
+	uniqueFiles := make(map[string]struct{})
+	consider := func(p string, isDir bool) bool {
+		path, err := filepath.Abs(p)
 		if err != nil {
-			layout.Omitted[path] = fmt.Errorf("failed to traverse: %w", err)
-			return
+			omitted[p] = fmt.Errorf("failed to convert path to absolute %q: %w", p, err)
+			return false // don't traverse children
 		}
-		if excludesFilter.Match(path) {
-			layout.Omitted[path] = fmt.Errorf("is excluded")
-			return
+		if excludeFilter.Match(path) {
+			omitted[p] = fmt.Errorf("path is excluded")
+			return false // don't traverse children
 		}
-		if d.IsDir() {
-			layout.ResourceDirs[path] = struct{}{}
+		if isDir {
+			uniqueDirs[path] = struct{}{}
 		} else {
-			layout.ResourceFiles[path] = struct{}{}
+			uniqueFiles[path] = struct{}{}
+		}
+		return true
+	}
+	traverse(includes, omitted, func(p string, d fs.DirEntry) bool {
+		if d.IsDir() {
+			return consider(p, true)
+		} else {
+			consider(filepath.Dir(p), true)
+			return consider(p, false)
 		}
 	})
 
-	traverse(uniqueSources, func(path string, d fs.DirEntry, err error) {
-		if err != nil {
-			layout.Omitted[path] = fmt.Errorf("failed to traverse: %w", err)
-			return
-		}
-		if resourcesFilter.Match(path) {
-			return
-		}
-		if excludesFilter.Match(path) {
-			layout.Omitted[path] = fmt.Errorf("is excluded")
-			return
-		}
-		if d.IsDir() {
-			layout.SourceDirs[path] = struct{}{}
-		} else {
-			if !includesFilter.Empty() && !includesFilter.Match(path) {
-				layout.Omitted[path] = fmt.Errorf("not included")
-				return
-			}
-			layout.SourceFiles[path] = struct{}{}
-		}
-	})
+	watchDirs := make([]string, 0, len(uniqueDirs))
+	for path := range uniqueDirs {
+		watchDirs = append(watchDirs, path)
+	}
+	sort.Strings(watchDirs)
 
-	return layout, nil
+	sourceFiles := make([]string, 0, len(uniqueFiles))
+	for path := range uniqueFiles {
+		if includeFilter.Match(path) && sourcesFilter.Match(path) {
+			sourceFiles = append(sourceFiles, path)
+		}
+	}
+	sort.Strings(sourceFiles)
+
+	return &Layout{
+		WatchDirs:       watchDirs,
+		SourceFiles:     sourceFiles,
+		IncludeFilter:   includeFilter,
+		ExcludeFilter:   excludeFilter,
+		SourcesFilter:   sourcesFilter,
+		ResourcesFilter: resourcesFilter,
+	}
 }
 
-type traverseFunc func(path string, d fs.DirEntry, err error)
+type traverseFunc func(p string, d fs.DirEntry) bool
 
-func traverse(roots map[string]struct{}, fn traverseFunc) {
-	for root := range roots {
-		filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-			path = filepath.Clean(path)
-			fn(path, d, err)
+func traverse(roots []string, omitted map[string]error, fn traverseFunc) {
+	for _, root := range roots {
+		filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
+				omitted[p] = fmt.Errorf("failed to traverse: %w", err)
+				return filepath.SkipDir
+			}
+			if !fn(p, d) {
 				return filepath.SkipDir
 			}
 			return nil
 		})
 	}
+}
+
+func buildFilter(targets []string, omitted map[string]error) location.Filter {
+	var filters []location.Filter
+	for _, target := range targets {
+		if location.AppearsGlob(target) {
+			filters = append(filters, location.GlobFilter(target))
+		} else {
+			path, err := filepath.Abs(target)
+			if err != nil {
+				omitted[target] = fmt.Errorf("failed to convert path to absolute: %w", err)
+			} else {
+				filters = append(filters, location.PathFilter(path))
+			}
+		}
+	}
+	return location.OrFilter(filters...)
 }
 
 func writeFileDigest(file string, h hash.Hash) error {
