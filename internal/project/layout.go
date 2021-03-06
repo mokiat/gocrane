@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"hash"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,6 +21,23 @@ type Layout struct {
 	ExcludeFilter   location.Filter
 	SourcesFilter   location.Filter
 	ResourcesFilter location.Filter
+}
+
+func (l *Layout) PrintToLog() {
+	log.Printf("omitted %d files or folders", len(l.Omitted))
+	for file, err := range l.Omitted {
+		log.Printf("omitted: %s (%s)", file, err)
+	}
+
+	log.Printf("found %d directories to watch", len(l.WatchDirs))
+	for _, dir := range l.WatchDirs {
+		log.Printf("watch dir: %s", dir)
+	}
+
+	log.Printf("found %d files to use for digest", len(l.SourceFiles))
+	for _, file := range l.SourceFiles {
+		log.Printf("source file: %s", file)
+	}
 }
 
 func (l *Layout) Digest() (string, error) {

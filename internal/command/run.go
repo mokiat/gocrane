@@ -63,7 +63,7 @@ func run(ctx context.Context, cfg runConfig) error {
 	)
 	log.Println("project successfully analyzed...")
 	if cfg.Verbose {
-		logLayout(layout)
+		layout.PrintToLog()
 	}
 
 	var fakeChangeEvent *events.Change

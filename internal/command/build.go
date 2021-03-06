@@ -59,7 +59,7 @@ func build(ctx context.Context, cfg buildConfig) error {
 	)
 	log.Println("project successfully analyzed...")
 	if cfg.Verbose {
-		logLayout(layout)
+		layout.PrintToLog()
 	}
 
 	log.Println("calculating digest...")
@@ -77,21 +77,4 @@ func build(ctx context.Context, cfg buildConfig) error {
 	log.Println("digest successfully persisted.")
 
 	return nil
-}
-
-func logLayout(layout *project.Layout) {
-	log.Printf("omitted %d files or folders", len(layout.Omitted))
-	for file, err := range layout.Omitted {
-		log.Printf("omitted: %s (%s)", file, err)
-	}
-
-	log.Printf("found %d directories to watch", len(layout.WatchDirs))
-	for _, dir := range layout.WatchDirs {
-		log.Printf("watch dir: %s", dir)
-	}
-
-	log.Printf("found %d files to use for digest", len(layout.SourceFiles))
-	for _, file := range layout.SourceFiles {
-		log.Printf("source file: %s", file)
-	}
 }
