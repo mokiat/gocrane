@@ -21,6 +21,21 @@ func AppearsGlob(pattern string) bool {
 	return strings.HasPrefix(pattern, globPrefix)
 }
 
+// WithGlobPrefix prepends the glob prefix to the specified pattern.
+func WithGlobPrefix(pattern string) string {
+	return fmt.Sprintf("%s%s", globPrefix, pattern)
+}
+
+// MustParseGlob is similar to ParseGlob except that it panics in
+// case there is an error.
+func MustParseGlob(pattern string) Glob {
+	glob, err := ParseGlob(pattern)
+	if err != nil {
+		panic(fmt.Errorf("failed to parse glob: %w", err))
+	}
+	return glob
+}
+
 // ParseGlob attempts to parse the specified pattern as a location Glob.
 // One prerequisite is that it has to have the glob prefix. Check the
 // AppearsGlob function for more information.
@@ -50,4 +65,9 @@ type Glob struct {
 func (g Glob) Match(segment string) bool {
 	match, _ := filepath.Match(g.pattern, segment)
 	return match
+}
+
+// String returns a string representation of this Glob.
+func (g Glob) String() string {
+	return WithGlobPrefix(g.pattern)
 }

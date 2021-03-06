@@ -43,11 +43,11 @@ func (f *Fixture) Delete() error {
 }
 
 func (f *Fixture) Path(path string) string {
-	return filepath.Join(f.tempDir, path)
+	return filepath.Join(f.tempDir, filepath.FromSlash(path))
 }
 
 func (f *Fixture) CreateDir(path string) error {
-	if err := os.MkdirAll(f.Path(path), 0755); err != nil {
+	if err := os.MkdirAll(f.Path(filepath.FromSlash(path)), 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 	return nil
