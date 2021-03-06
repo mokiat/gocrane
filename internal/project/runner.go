@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+
+	"github.com/mokiat/gocrane/internal/logutil"
 )
 
 func NewRunner(args []string) *Runner {
@@ -20,14 +22,12 @@ type Runner struct {
 }
 
 func (r *Runner) Run(ctx context.Context, path string) (*Process, error) {
-	output := logWriter{
-		logger: log.New(log.Writer(), "[program]: ", log.Ltime|log.Lmsgprefix),
-	}
+	logger := log.New(log.Writer(), "[program]: ", log.Ltime|log.Lmsgprefix)
 
 	runCtx, killFunc := context.WithCancel(ctx)
 	cmd := exec.CommandContext(runCtx, path, r.args...)
-	cmd.Stdout = output
-	cmd.Stderr = output
+	cmd.Stdout = logutil.ToWriter(logger)
+	cmd.Stderr = logutil.ToWriter(logger)
 	if err := cmd.Start(); err != nil {
 		killFunc() // otherwise linter complains
 		return nil, fmt.Errorf("failed to start program: %w", err)
