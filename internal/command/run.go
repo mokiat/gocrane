@@ -85,12 +85,12 @@ func run(ctx context.Context, cfg runConfig) error {
 			return fmt.Errorf("failed to calculate digest: %w", err)
 		}
 		if storedDigest == digest {
-			log.Println("digests match, using binary")
+			log.Println("digest match, will use existing binary.")
 			fakeBuildEvent = &pipeline.BuildEvent{
 				Path: cfg.BinaryFile,
 			}
 		} else {
-			log.Println("digest mismatch, building from scratch")
+			log.Printf("digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
 			fakeChangeEvent = &pipeline.ChangeEvent{}
 		}
 	} else {
@@ -149,6 +149,6 @@ func run(ctx context.Context, cfg runConfig) error {
 		return fmt.Errorf("run error: %w", err)
 	}
 
-	log.Println("stopped.")
+	log.Println("pipeline stopped.")
 	return nil
 }
