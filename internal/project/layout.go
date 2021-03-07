@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"hash"
-	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,19 +13,24 @@ import (
 )
 
 type Layout struct {
-	Omitted         map[string]error
-	WatchDirs       []string
-	SourceFiles     []string
-	IncludeFilter   location.Filter
-	ExcludeFilter   location.Filter
-	SourcesFilter   location.Filter
-	ResourcesFilter location.Filter
+	Errored        map[string]error
+	Ignored        map[string]struct{}
+	WatchDirs      []string
+	WatchFilter    location.Filter
+	SourceFiles    []string
+	SourceFilter   location.Filter
+	ResourceFilter location.Filter
 }
 
 func (l *Layout) PrintToLog() {
-	log.Printf("omitted %d files or folders", len(l.Omitted))
-	for file, err := range l.Omitted {
-		log.Printf("omitted: %s (%s)", file, err)
+	log.Printf("encountered an error with %d files or folders", len(l.Errored))
+	for file, err := range l.Errored {
+		log.Printf("errored: %s (%s)", file, err)
+	}
+
+	log.Printf("omitted %d files or folders", len(l.Ignored))
+	for file := range l.Ignored {
+		log.Printf("omitted: %s", file)
 	}
 
 	log.Printf("found %d directories to watch", len(l.WatchDirs))
@@ -50,41 +54,44 @@ func (l *Layout) Digest() (string, error) {
 	return fmt.Sprintf("%x", dig.Sum(nil)), nil
 }
 
-func Explore(includes, excludes, sources, resources []string) *Layout {
-	var omitted map[string]error
+func Explore(dirs, dirExcludes, sources, sourceExludes, resources, resourceExcludes []string) *Layout {
+	errored := make(map[string]error)
+	omitted := make(map[string]struct{})
 
-	includeFilter := buildFilter(includes, omitted)
-	excludeFilter := buildFilter(excludes, omitted)
-	sourcesFilter := buildFilter(sources, omitted)
-	resourcesFilter := buildFilter(resources, omitted)
+	watchFilter := location.NotFilter(
+		buildFilter(dirExcludes, errored),
+	)
+	sourcesFilter := location.AndFilter(
+		buildFilter(sources, errored),
+		location.NotFilter(
+			buildFilter(sourceExludes, errored),
+		),
+	)
+	resourcesFilter := location.AndFilter(
+		buildFilter(resources, errored),
+		location.NotFilter(
+			buildFilter(resourceExcludes, errored),
+		),
+	)
 
 	uniqueDirs := make(map[string]struct{})
 	uniqueFiles := make(map[string]struct{})
-	consider := func(p string, isDir bool) bool {
-		path, err := filepath.Abs(p)
-		if err != nil {
-			omitted[p] = fmt.Errorf("failed to convert path to absolute %q: %w", p, err)
-			return false // don't traverse children
+	for _, dir := range dirs {
+		result := location.Traverse(dir, watchFilter, func(path string, isDir bool) error {
+			if isDir {
+				uniqueDirs[path] = struct{}{}
+			} else {
+				uniqueFiles[path] = struct{}{}
+			}
+			return nil
+		})
+		for path := range result.IgnoredPaths {
+			omitted[path] = struct{}{}
 		}
-		if excludeFilter.Match(path) {
-			omitted[p] = fmt.Errorf("path is excluded")
-			return false // don't traverse children
+		for path, err := range result.ErroredPaths {
+			errored[path] = err
 		}
-		if isDir {
-			uniqueDirs[path] = struct{}{}
-		} else {
-			uniqueFiles[path] = struct{}{}
-		}
-		return true
 	}
-	traverse(includes, omitted, func(p string, d fs.DirEntry) bool {
-		if d.IsDir() {
-			return consider(p, true)
-		} else {
-			consider(filepath.Dir(p), true)
-			return consider(p, false)
-		}
-	})
 
 	watchDirs := make([]string, 0, len(uniqueDirs))
 	for path := range uniqueDirs {
@@ -94,40 +101,24 @@ func Explore(includes, excludes, sources, resources []string) *Layout {
 
 	sourceFiles := make([]string, 0, len(uniqueFiles))
 	for path := range uniqueFiles {
-		if includeFilter.Match(path) && sourcesFilter.Match(path) {
+		if sourcesFilter.Match(path) {
 			sourceFiles = append(sourceFiles, path)
 		}
 	}
 	sort.Strings(sourceFiles)
 
 	return &Layout{
-		WatchDirs:       watchDirs,
-		SourceFiles:     sourceFiles,
-		IncludeFilter:   includeFilter,
-		ExcludeFilter:   excludeFilter,
-		SourcesFilter:   sourcesFilter,
-		ResourcesFilter: resourcesFilter,
+		Errored:        errored,
+		Ignored:        omitted,
+		WatchDirs:      watchDirs,
+		WatchFilter:    watchFilter,
+		SourceFiles:    sourceFiles,
+		SourceFilter:   sourcesFilter,
+		ResourceFilter: resourcesFilter,
 	}
 }
 
-type traverseFunc func(p string, d fs.DirEntry) bool
-
-func traverse(roots []string, omitted map[string]error, fn traverseFunc) {
-	for _, root := range roots {
-		filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
-			if err != nil {
-				omitted[p] = fmt.Errorf("failed to traverse: %w", err)
-				return filepath.SkipDir
-			}
-			if !fn(p, d) {
-				return filepath.SkipDir
-			}
-			return nil
-		})
-	}
-}
-
-func buildFilter(targets []string, omitted map[string]error) location.Filter {
+func buildFilter(targets []string, errored map[string]error) location.Filter {
 	var filters []location.Filter
 	for _, target := range targets {
 		if location.AppearsGlob(target) {
@@ -135,7 +126,7 @@ func buildFilter(targets []string, omitted map[string]error) location.Filter {
 		} else {
 			path, err := filepath.Abs(target)
 			if err != nil {
-				omitted[target] = fmt.Errorf("failed to convert path to absolute: %w", err)
+				errored[target] = fmt.Errorf("failed to convert path to absolute: %w", err)
 			} else {
 				filters = append(filters, location.PathFilter(path))
 			}

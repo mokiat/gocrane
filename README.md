@@ -31,10 +31,32 @@ Use can use `gocrane --help` to get detailed information on the supported comman
 
 ### Understanding File Configuration
 
-There are a number of configurations that are vital to gocrane working fast and correctly. The most important is probably the `include` flag. It should contain files and folders that you would like gocrane to keep watch of. This does not necessary mean that gocrane would trigger a build or a restart if one of those file changes (this is controlled with additional flags) but indicates to gocrane which files it should explore and keep in mind.
+#### The `dir` flag
 
-The `exclude` flag on the other hand can be used to indicate files, directories, or globs that should be ignored at all cost. This is useful if you would not like gocrane to explore deep folders that are not related to the project (e.g. `.git`). By default gocrane ignores a number of common non-project directories.
+To start off, you need to tell gocrane which folders it should watch for changes. This where the `dir` flag comes into play.
+You can specify it multiple times and while you could specify nested directories, that is suboptimal and unnecessary, since gocrane
+explores directories in depth.
 
-The `source` flag can be used to indicate which paths should be considered relevant for building the project. When gocrane detects a change to one of those files, it will trigger a rebuild of the project. Keep in mind that the expressions specified in this flag need to include paths that are part of `include`, otherwise they would not be considered. By default gocrane uses `*.go` but you could chnage that to include additional ones, if for example you are using file embedding.
+By default gocrane sets this to `./`.
 
-The `resource` flag on the other hand indicates which paths should be considered relevant for restarting the project. For exmaple, if your project is an HTTP server that serves files from a project folder, you may wont to mark that folder as a resource, so that if there is a change to it, gocrane would trigger a restart, instead of a build (unless the change also matches the `source` flag).
+#### The `exclude-dir` flag
+
+There might be cases when certain directories are not relevant for the project. You can use the `exclude-dir` flag to specify paths or globs for files or folders that should be ignored from watching. A good example is `.git` and this is why it is set by default (as well as some other ones). However, if you specify this flag, it will be disabled, so you would need to specify all excludes on your own.
+
+#### The `source` flag
+
+The gocrane tool needs some way to know which files to treat as source code. This is not required for the building of the executable, which works well without this settings. Rather, this is required to avoid triggering unnecessary builds when irrelevant files (e.g. `README.md`) are changed. Furthermore, it is used as a means to calculate the source digest.
+
+By default gocrane sets this to `*.go` but you may want to reconfigure it if for example you are using the new `embed` capability of Go and would like to have other non-source-code resources trigger a rebuild.
+
+#### The `exclude-source` flag
+
+While the `source` flag does a fairly good job, there is still room for optimiziation. In most cases files like `_test.go` are irrelevant for the build of the final executable. This is why, the `exclude-source` flag can be used to specify such patterns.
+
+#### The `resource` flag
+
+If you specify this flag and if changed files or folders match it, gocrane will not trigger a build but rather only a restart. This is useful if your execuable is an HTTP server for example and you have a resource folder with HTML content.
+
+#### The `exclude-resource` flag
+
+This flag works in the same way as the `exclude-source` flag, except that it applies to resources.

@@ -55,9 +55,6 @@ func PathFilter(filterPath string) Filter {
 // sub-filters match that path.
 func OrFilter(filters ...Filter) Filter {
 	return FilterFunc(func(path string) bool {
-		if len(filters) == 0 {
-			return true
-		}
 		for _, filter := range filters {
 			if filter.Match(path) {
 				return true

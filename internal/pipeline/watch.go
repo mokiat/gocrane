@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
 
@@ -27,7 +27,9 @@ func Watch(
 
 	return func() error {
 		if bootstrapEvent != nil {
-			out.Push(ctx, *bootstrapEvent)
+			if !out.Push(ctx, *bootstrapEvent) {
+				return nil
+			}
 		}
 
 		watcher, err := fsnotify.NewWatcher()
@@ -36,14 +38,42 @@ func Watch(
 		}
 		defer watcher.Close()
 
-		watchDir := func(path string) {
-			if err := watcher.Add(path); err != nil {
+		watchedPaths := make(map[string]struct{})
+
+		watchPath := func(root string) map[string]struct{} {
+			result := location.Traverse(root, watchFilter, func(path string, isDir bool) error {
+				watchedPaths[path] = struct{}{}
+				if !isDir {
+					return location.ErrSkip
+				}
+				if err := watcher.Add(path); err != nil {
+					return fmt.Errorf("failed to watch %q: %w", path, err)
+				}
+				return nil
+			})
+			for path, err := range result.ErroredPaths {
 				log.Printf("failed to watch %q: %v", path, err)
-			} else {
-				if verbose {
+			}
+			if verbose {
+				for path := range result.VisitedPaths {
 					log.Printf("watching %q", path)
 				}
+				for path := range result.IgnoredPaths {
+					log.Printf("skipping excluded path %q from watching", path)
+				}
 			}
+			return result.VisitedPaths
+		}
+
+		unwatchPath := func(root string) map[string]struct{} {
+			result := make(map[string]struct{})
+			for p := range watchedPaths {
+				if strings.HasPrefix(p, root) {
+					result[p] = struct{}{}
+					delete(watchedPaths, p)
+				}
+			}
+			return result
 		}
 
 		processFSEvent := func(event fsnotify.Event) {
@@ -57,30 +87,40 @@ func Watch(
 			}
 			if !watchFilter.Match(path) {
 				if verbose {
-					log.Printf("skipping excluded path %q from watching", path)
+					log.Printf("skipping excluded path %q from processing", path)
 				}
 				return
 			}
-			stat, err := os.Stat(path)
-			if err != nil {
-				log.Printf("failed to stat file %q: %v", event.Name, err)
-				return
-			}
-			if stat.IsDir() {
-				if isEventType(event, fsnotify.Create) {
-					watchDir(path)
+
+			switch {
+			case isEventType(event, fsnotify.Create):
+				paths := watchPath(path)
+				event := ChangeEvent{}
+				for path := range paths {
+					event.Paths = append(event.Paths, path)
 				}
-			} else {
-				if !isEventType(event, fsnotify.Chmod) {
-					out.Push(ctx, ChangeEvent{
-						Paths: []string{path},
-					})
+				out.Push(ctx, event)
+
+			case isEventType(event, fsnotify.Remove):
+				paths := unwatchPath(path)
+				event := ChangeEvent{}
+				for path := range paths {
+					event.Paths = append(event.Paths, path)
 				}
+				out.Push(ctx, event)
+
+			case isEventType(event, fsnotify.Chmod):
+				// We do nothing on these, since MacOS produces a lot of them.
+
+			default:
+				out.Push(ctx, ChangeEvent{
+					Paths: []string{path},
+				})
 			}
 		}
 
 		for _, dir := range dirs {
-			watchDir(dir)
+			watchPath(dir)
 		}
 
 		for {

@@ -17,10 +17,12 @@ func Build() *cli.Command {
 		Name: "build",
 		Flags: []cli.Flag{
 			newVerboseFlag(&cfg.Verbose),
-			newIncludesFlag(&cfg.Includes),
-			newExcludesFlag(&cfg.Excludes),
-			newSourcesFlag(&cfg.Sources),
-			newResourcesFlag(&cfg.Resources),
+			newDirFlag(&cfg.Dirs),
+			newDirExcludeFlag(&cfg.ExcludeDirs),
+			newSourceFlag(&cfg.Sources),
+			newSourceExcludeFlag(&cfg.ExcludeSources),
+			newResourceFlag(&cfg.Resources),
+			newResourceExcludeFlag(&cfg.ExcludeResources),
 			newMainFlag(&cfg.MainDir),
 			newBinaryFlag(&cfg.BinaryFile, true),
 			newBuildArgs(&cfg.BuildArgs),
@@ -32,14 +34,16 @@ func Build() *cli.Command {
 }
 
 type buildConfig struct {
-	Verbose    bool
-	Includes   cli.StringSlice
-	Excludes   cli.StringSlice
-	Sources    cli.StringSlice
-	Resources  cli.StringSlice
-	MainDir    string
-	BinaryFile string
-	BuildArgs  flag.ShlexStringSlice
+	Verbose          bool
+	Dirs             cli.StringSlice
+	ExcludeDirs      cli.StringSlice
+	Sources          cli.StringSlice
+	ExcludeSources   cli.StringSlice
+	Resources        cli.StringSlice
+	ExcludeResources cli.StringSlice
+	MainDir          string
+	BinaryFile       string
+	BuildArgs        flag.ShlexStringSlice
 }
 
 func build(ctx context.Context, cfg buildConfig) error {
@@ -52,10 +56,12 @@ func build(ctx context.Context, cfg buildConfig) error {
 
 	log.Println("analyzing project...")
 	layout := project.Explore(
-		cfg.Includes.Value(),
-		cfg.Excludes.Value(),
+		cfg.Dirs.Value(),
+		cfg.ExcludeDirs.Value(),
 		cfg.Sources.Value(),
+		cfg.ExcludeSources.Value(),
 		cfg.Resources.Value(),
+		cfg.ExcludeResources.Value(),
 	)
 	log.Println("project successfully analyzed...")
 	if cfg.Verbose {

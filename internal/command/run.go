@@ -10,7 +10,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mokiat/gocrane/internal/command/flag"
-	"github.com/mokiat/gocrane/internal/location"
 	"github.com/mokiat/gocrane/internal/pipeline"
 	"github.com/mokiat/gocrane/internal/project"
 )
@@ -21,10 +20,12 @@ func Run() *cli.Command {
 		Name: "run",
 		Flags: []cli.Flag{
 			newVerboseFlag(&cfg.Verbose),
-			newIncludesFlag(&cfg.Includes),
-			newExcludesFlag(&cfg.Excludes),
-			newSourcesFlag(&cfg.Sources),
-			newResourcesFlag(&cfg.Resources),
+			newDirFlag(&cfg.Dirs),
+			newDirExcludeFlag(&cfg.ExcludeDirs),
+			newSourceFlag(&cfg.Sources),
+			newSourceExcludeFlag(&cfg.ExcludeSources),
+			newResourceFlag(&cfg.Resources),
+			newResourceExcludeFlag(&cfg.ExcludeResources),
 			newMainFlag(&cfg.MainDir),
 			newBinaryFlag(&cfg.BinaryFile, false),
 			newBuildArgs(&cfg.BuildArgs),
@@ -39,26 +40,30 @@ func Run() *cli.Command {
 }
 
 type runConfig struct {
-	Verbose         bool
-	Includes        cli.StringSlice
-	Excludes        cli.StringSlice
-	Sources         cli.StringSlice
-	Resources       cli.StringSlice
-	MainDir         string
-	BinaryFile      string
-	BuildArgs       flag.ShlexStringSlice
-	RunArgs         flag.ShlexStringSlice
-	BatchDuration   time.Duration
-	ShutdownTimeout time.Duration
+	Verbose          bool
+	Dirs             cli.StringSlice
+	ExcludeDirs      cli.StringSlice
+	Sources          cli.StringSlice
+	ExcludeSources   cli.StringSlice
+	Resources        cli.StringSlice
+	ExcludeResources cli.StringSlice
+	MainDir          string
+	BinaryFile       string
+	BuildArgs        flag.ShlexStringSlice
+	RunArgs          flag.ShlexStringSlice
+	BatchDuration    time.Duration
+	ShutdownTimeout  time.Duration
 }
 
 func run(ctx context.Context, cfg runConfig) error {
 	log.Println("analyzing project...")
 	layout := project.Explore(
-		cfg.Includes.Value(),
-		cfg.Excludes.Value(),
+		cfg.Dirs.Value(),
+		cfg.ExcludeDirs.Value(),
 		cfg.Sources.Value(),
+		cfg.ExcludeSources.Value(),
 		cfg.Resources.Value(),
+		cfg.ExcludeResources.Value(),
 	)
 	log.Println("project successfully analyzed...")
 	if cfg.Verbose {
@@ -104,7 +109,7 @@ func run(ctx context.Context, cfg runConfig) error {
 		groupCtx,
 		cfg.Verbose,
 		layout.WatchDirs,
-		location.AndFilter(layout.IncludeFilter, location.NotFilter(layout.ExcludeFilter)),
+		layout.WatchFilter,
 		changeEventQueue,
 		fakeChangeEvent,
 	))
@@ -127,8 +132,8 @@ func run(ctx context.Context, cfg runConfig) error {
 		cfg.BuildArgs.Value(),
 		batchChangeEventQueue,
 		buildEventQueue,
-		location.AndFilter(layout.IncludeFilter, layout.SourcesFilter),
-		location.AndFilter(layout.IncludeFilter, layout.ResourcesFilter),
+		layout.SourceFilter,
+		layout.ResourceFilter,
 		fakeBuildEvent,
 	))
 
