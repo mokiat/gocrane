@@ -85,6 +85,7 @@ func NotFilter(filter Filter) Filter {
 	})
 }
 
+// MatchAny returns true if the filter matches any of the specified paths.
 func MatchAny(filter Filter, paths []string) bool {
 	for _, path := range paths {
 		if filter.Match(path) {

@@ -120,4 +120,24 @@ var _ = Describe("Filter", func() {
 			Entry("subfilter does not match", false, true),
 		)
 	})
+
+	Describe("MatchAny", func() {
+		BeforeEach(func() {
+			filter = location.FilterFunc(func(p string) bool {
+				return p == "/match"
+			})
+		})
+
+		It("returns false on no paths", func() {
+			Expect(location.MatchAny(filter, []string{})).To(BeFalse())
+		})
+
+		It("returns false when no path matches", func() {
+			Expect(location.MatchAny(filter, []string{"/a", "/b"})).To(BeFalse())
+		})
+
+		It("returns true when any path matches", func() {
+			Expect(location.MatchAny(filter, []string{"/a", "/match", "/b"})).To(BeTrue())
+		})
+	})
 })
