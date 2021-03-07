@@ -9,7 +9,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/mokiat/gocrane/internal/events"
 	"github.com/mokiat/gocrane/internal/location"
 )
 
@@ -18,8 +17,8 @@ func Watch(
 	verbose bool,
 	dirs []string,
 	watchFilter location.Filter,
-	out events.ChangeQueue,
-	bootstrapEvent *events.Change,
+	out ChangeEventQueue,
+	bootstrapEvent *ChangeEvent,
 
 ) func() error {
 	isEventType := func(event fsnotify.Event, eType fsnotify.Op) bool {
@@ -73,7 +72,7 @@ func Watch(
 				}
 			} else {
 				if !isEventType(event, fsnotify.Chmod) {
-					out.Push(ctx, events.Change{
+					out.Push(ctx, ChangeEvent{
 						Paths: []string{path},
 					})
 				}

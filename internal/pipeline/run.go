@@ -6,14 +6,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/mokiat/gocrane/internal/events"
 	"github.com/mokiat/gocrane/internal/project"
 )
 
 func Run(
 	ctx context.Context,
 	runArgs []string,
-	in events.BuildQueue,
+	in BuildEventQueue,
 	shutdownTimeout time.Duration,
 ) func() error {
 
@@ -51,7 +50,7 @@ func Run(
 			return nil
 		}
 
-		var buildEvent events.Build
+		var buildEvent BuildEvent
 		for in.Pop(ctx, &buildEvent) {
 			if err := stopProcess(); err != nil {
 				return err

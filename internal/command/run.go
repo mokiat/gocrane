@@ -10,7 +10,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mokiat/gocrane/internal/command/flag"
-	"github.com/mokiat/gocrane/internal/events"
 	"github.com/mokiat/gocrane/internal/location"
 	"github.com/mokiat/gocrane/internal/pipeline"
 	"github.com/mokiat/gocrane/internal/project"
@@ -66,8 +65,8 @@ func run(ctx context.Context, cfg runConfig) error {
 		layout.PrintToLog()
 	}
 
-	var fakeChangeEvent *events.Change
-	var fakeBuildEvent *events.Build
+	var fakeChangeEvent *pipeline.ChangeEvent
+	var fakeBuildEvent *pipeline.BuildEvent
 	if cfg.BinaryFile != "" {
 		log.Println("reading stored digest...")
 		digestFile := fmt.Sprintf("%s.dig", cfg.BinaryFile)
@@ -82,21 +81,21 @@ func run(ctx context.Context, cfg runConfig) error {
 		}
 		if storedDigest == digest {
 			log.Println("digests match, using binary")
-			fakeBuildEvent = &events.Build{
+			fakeBuildEvent = &pipeline.BuildEvent{
 				Path: cfg.BinaryFile,
 			}
 		} else {
 			log.Println("digest mismatch, building from scratch")
-			fakeChangeEvent = &events.Change{}
+			fakeChangeEvent = &pipeline.ChangeEvent{}
 		}
 	} else {
-		fakeChangeEvent = &events.Change{}
+		fakeChangeEvent = &pipeline.ChangeEvent{}
 	}
 
 	log.Println("starting pipeline...")
-	changeEventQueue := make(events.ChangeQueue, 1024)
-	batchChangeEventQueue := make(events.ChangeQueue)
-	buildEventQueue := make(events.BuildQueue)
+	changeEventQueue := make(pipeline.ChangeEventQueue, 1024)
+	batchChangeEventQueue := make(pipeline.ChangeEventQueue)
+	buildEventQueue := make(pipeline.BuildEventQueue)
 
 	group, groupCtx := errgroup.WithContext(ctx)
 

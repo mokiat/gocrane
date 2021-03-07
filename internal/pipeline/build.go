@@ -9,7 +9,6 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/mokiat/gocrane/internal/events"
 	"github.com/mokiat/gocrane/internal/location"
 	"github.com/mokiat/gocrane/internal/project"
 )
@@ -18,11 +17,11 @@ func Build(
 	ctx context.Context,
 	mainDir string,
 	buildArgs []string,
-	in events.ChangeQueue,
-	out events.BuildQueue,
+	in ChangeEventQueue,
+	out BuildEventQueue,
 	rebuildFilter location.Filter,
 	restartFilter location.Filter,
-	bootstrapEvent *events.Build,
+	bootstrapEvent *BuildEvent,
 ) func() error {
 
 	// Create a temporary directory to store binaries.
@@ -45,7 +44,7 @@ func Build(
 			out.Push(ctx, *bootstrapEvent)
 		}
 
-		var changeEvent events.Change
+		var changeEvent ChangeEvent
 		for in.Pop(ctx, &changeEvent) {
 			shouldBuild := location.MatchAny(rebuildFilter, changeEvent.Paths)
 			shouldRestart := location.MatchAny(restartFilter, changeEvent.Paths)
@@ -59,7 +58,7 @@ func Build(
 			// If just a restart is required, then produce a fake build event
 			// based on the last binary.
 			if !shouldBuild && shouldRestart {
-				out.Push(ctx, events.Build{
+				out.Push(ctx, BuildEvent{
 					Path: lastBinary,
 				})
 				continue
@@ -74,7 +73,7 @@ func Build(
 
 			log.Printf("build was successful.")
 			lastBinary = path
-			out.Push(ctx, events.Build{
+			out.Push(ctx, BuildEvent{
 				Path: path,
 			})
 		}

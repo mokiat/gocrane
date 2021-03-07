@@ -3,22 +3,20 @@ package pipeline
 import (
 	"context"
 	"time"
-
-	"github.com/mokiat/gocrane/internal/events"
 )
 
 func Batch(
 	ctx context.Context,
-	in events.ChangeQueue,
-	out events.ChangeQueue,
+	in ChangeEventQueue,
+	out ChangeEventQueue,
 	batchDuration time.Duration,
 ) func() error {
 
 	return func() error {
 		var (
-			flushChan  chan<- events.Change = nil
-			timerChan  <-chan time.Time     = nil
-			batchEvent events.Change
+			flushChan  chan<- ChangeEvent = nil
+			timerChan  <-chan time.Time   = nil
+			batchEvent ChangeEvent
 		)
 
 		for {
