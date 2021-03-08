@@ -49,6 +49,11 @@ func Build(
 			shouldBuild := location.MatchAny(rebuildFilter, changeEvent.Paths)
 			shouldRestart := location.MatchAny(restartFilter, changeEvent.Paths)
 
+			// Skip this change event. The changed files are not of relevance.
+			if !shouldBuild && !shouldRestart {
+				continue
+			}
+
 			// If a restart is requested but there isn't a binary yet, then
 			// trigger a build.
 			if shouldRestart && (lastBinary == "") {
