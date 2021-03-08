@@ -58,9 +58,6 @@ func Watch(
 				for path := range result.VisitedPaths {
 					log.Printf("watching %q", path)
 				}
-				for path := range result.IgnoredPaths {
-					log.Printf("skipping excluded path %q from watching", path)
-				}
 			}
 			return result.VisitedPaths
 		}
