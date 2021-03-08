@@ -15,7 +15,8 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", http.FileServer(http.Dir("./public")))
+	mux.Handle("/greet", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, internal.Greet())
 	}))
 	server := &http.Server{

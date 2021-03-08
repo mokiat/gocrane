@@ -29,9 +29,34 @@ GO111MODULE=on go get github.com/mokiat/gocrane
 
 Use can use `gocrane --help` to get detailed information on the supported commands and flags.
 
-By default `gocrane` ignores the following files and folders:
-* `.git`
-* `.github`
-* `.gitignore`
-* `.DS_Store`
-* `.vscode`
+### Understanding File Configuration
+
+#### The `dir` flag
+
+To start off, you need to tell gocrane which folders it should watch for changes. This where the `dir` flag comes into play.
+You can specify it multiple times and while you could specify nested directories, that is suboptimal and unnecessary, since gocrane
+explores directories in depth.
+
+By default gocrane sets this to `./`.
+
+#### The `exclude-dir` flag
+
+There might be cases when certain directories are not relevant for the project. You can use the `exclude-dir` flag to specify paths or globs for files or folders that should be ignored from watching. A good example is `.git` and this is why it is set by default (as well as some other ones). However, if you specify this flag, it will be disabled, so you would need to specify all excludes on your own.
+
+#### The `source` flag
+
+The gocrane tool needs some way to know which files to treat as source code. This is not required for the building of the executable, which works well without this settings. Rather, this is required to avoid triggering unnecessary builds when irrelevant files (e.g. `README.md`) are changed. Furthermore, it is used as a means to calculate the source digest.
+
+By default gocrane sets this to `*.go` but you may want to reconfigure it if for example you are using the new `embed` capability of Go and would like to have other non-source-code resources trigger a rebuild.
+
+#### The `exclude-source` flag
+
+While the `source` flag does a fairly good job, there is still room for optimiziation. In most cases files like `_test.go` are irrelevant for the build of the final executable. This is why, the `exclude-source` flag can be used to specify such patterns.
+
+#### The `resource` flag
+
+If you specify this flag and if changed files or folders match it, gocrane will not trigger a build but rather only a restart. This is useful if your execuable is an HTTP server for example and you have a resource folder with HTML content.
+
+#### The `exclude-resource` flag
+
+This flag works in the same way as the `exclude-source` flag, except that it applies to resources.

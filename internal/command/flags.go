@@ -5,8 +5,8 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/mokiat/gocrane/internal/flag"
-	"github.com/mokiat/gocrane/internal/project"
+	"github.com/mokiat/gocrane/internal/command/flag"
+	"github.com/mokiat/gocrane/internal/location"
 )
 
 func newVerboseFlag(target *bool) cli.Flag {
@@ -20,44 +20,89 @@ func newVerboseFlag(target *bool) cli.Flag {
 	}
 }
 
-func newSourcesFlag(target *cli.StringSlice) cli.Flag {
+func newDirFlag(target *cli.StringSlice) cli.Flag {
 	return &cli.StringSliceFlag{
-		Name:        "source",
-		Usage:       "folder(s) and/or file(s) that are required for building the application",
-		Aliases:     []string{"src"},
-		EnvVars:     []string{"GOCRANE_SOURCES"},
-		Value:       cli.NewStringSlice("./"),
+		Name:    "dir",
+		Usage:   "folder(s) that should be watched",
+		Aliases: []string{"d"},
+		EnvVars: []string{"GOCRANE_DIRS"},
+		Value: cli.NewStringSlice(
+			"./",
+		),
 		Destination: target,
 	}
 }
 
-func newResourcesFlag(target *cli.StringSlice) cli.Flag {
+func newDirExcludeFlag(target *cli.StringSlice) cli.Flag {
+	return &cli.StringSliceFlag{
+		Name:    "dir-exclude",
+		Usage:   "filter(s) for folders that should be excluded from watching",
+		Aliases: []string{"de"},
+		EnvVars: []string{"GOCRANE_DIR_EXCLUDES"},
+		Value: cli.NewStringSlice(
+			location.Glob(".git"),
+			location.Glob(".github"),
+			location.Glob(".gitlab"),
+			location.Glob(".vscode"),
+		),
+		Destination: target,
+	}
+}
+
+func newSourceFlag(target *cli.StringSlice) cli.Flag {
+	return &cli.StringSliceFlag{
+		Name:    "source",
+		Usage:   "filter(s) that indicate which watched files should trigger a build",
+		Aliases: []string{"s"},
+		EnvVars: []string{"GOCRANE_SOURCES"},
+		Value: cli.NewStringSlice(
+			location.Glob("*.go"),
+			location.Glob("go.mod"),
+			location.Glob("go.sum"),
+		),
+		Destination: target,
+	}
+}
+
+func newSourceExcludeFlag(target *cli.StringSlice) cli.Flag {
+	return &cli.StringSliceFlag{
+		Name:    "source-exclude",
+		Usage:   "filter(s) that indicate which watched files should not trigger a build",
+		Aliases: []string{"se"},
+		EnvVars: []string{"GOCRANE_SOURCE_EXCLUDES"},
+		Value: cli.NewStringSlice(
+			location.Glob("*_test.go"),
+		),
+		Destination: target,
+	}
+}
+
+func newResourceFlag(target *cli.StringSlice) cli.Flag {
 	return &cli.StringSliceFlag{
 		Name:        "resource",
-		Usage:       "folder(s) and/or file(s) that are required for running the application",
-		Aliases:     []string{"res"},
+		Usage:       "filter(s) that indicate which watched files should trigger a restart",
+		Aliases:     []string{"r"},
 		EnvVars:     []string{"GOCRANE_RESOURCES"},
+		Value:       cli.NewStringSlice(),
 		Destination: target,
 	}
 }
 
-func newIncludesFlag(target *cli.StringSlice) cli.Flag {
+func newResourceExcludeFlag(target *cli.StringSlice) cli.Flag {
 	return &cli.StringSliceFlag{
-		Name:        "include",
-		Usage:       "folder(s) and/or file(s) that are of interest for building or running the application",
-		Aliases:     []string{"in"},
-		EnvVars:     []string{"GOCRANE_INCLUDES"},
-		Value:       cli.NewStringSlice(project.Glob("*.go")),
-		Destination: target,
-	}
-}
-
-func newExcludesFlag(target *cli.StringSlice) cli.Flag {
-	return &cli.StringSliceFlag{
-		Name:        "exclude",
-		Usage:       "folder(s) and/or file(s) that are not of interest for building or running the application",
-		Aliases:     []string{"ex"},
-		EnvVars:     []string{"GOCRANE_EXCLUDES"},
+		Name:    "resource-exclude",
+		Usage:   "filter(s) that indicate which watched files should not trigger a restart",
+		Aliases: []string{"re"},
+		EnvVars: []string{"GOCRANE_RESOURCE_EXCLUDES"},
+		Value: cli.NewStringSlice(
+			location.Glob(".gitignore"),
+			location.Glob(".gitattributes"),
+			location.Glob(".DS_Store"),
+			location.Glob("README.md"),
+			location.Glob("LICENSE"),
+			location.Glob("Dockerfile"),
+			location.Glob("docker-compose.yml"),
+		),
 		Destination: target,
 	}
 }
@@ -66,6 +111,7 @@ func newMainFlag(target *string) cli.Flag {
 	return &cli.StringFlag{
 		Name:        "main",
 		Usage:       "directory that contains the main package to build",
+		Aliases:     []string{"m"},
 		EnvVars:     []string{"GOCRANE_MAIN"},
 		Value:       "./",
 		Destination: target,
@@ -77,18 +123,8 @@ func newBinaryFlag(target *string, required bool) cli.Flag {
 		Name:        "binary",
 		Usage:       "file that will be used to build or run an initial (cached) application",
 		Required:    required,
-		Aliases:     []string{"bin"},
+		Aliases:     []string{"b", "bin"},
 		EnvVars:     []string{"GOCRANE_BINARY"},
-		Destination: target,
-	}
-}
-
-func newDigestFlag(target *string) cli.Flag {
-	return &cli.StringFlag{
-		Name:        "digest",
-		Usage:       "file that will be used to track the state of sources when running cached applications",
-		Aliases:     []string{"dig"},
-		EnvVars:     []string{"GOCRANE_DIGEST"},
 		Destination: target,
 	}
 }
@@ -131,26 +167,6 @@ func newShutdownTimeoutFlag(target *time.Duration) cli.Flag {
 		Value:       5 * time.Second,
 		Aliases:     []string{"st"},
 		EnvVars:     []string{"GOCRANE_SHUTDOWN_TIMEOUT"},
-		Destination: target,
-	}
-}
-
-func newNoDefaultExcludes(target *bool) cli.Flag {
-	return &cli.BoolFlag{
-		Name:        "--no-default-excludes",
-		Usage:       "don't use exclude presets",
-		EnvVars:     []string{"GOCRANE_NO_DEFAULT_EXCLUDES"},
-		Value:       false,
-		Destination: target,
-	}
-}
-
-func newNoDefaultResources(target *bool) cli.Flag {
-	return &cli.BoolFlag{
-		Name:        "--no-default-resources",
-		Usage:       "don't use resource presets",
-		EnvVars:     []string{"GOCRANE_NO_DEFAULT_RESOURCES"},
-		Value:       false,
 		Destination: target,
 	}
 }
