@@ -9,7 +9,7 @@ This tool is heavily inspired by [go-watcher](https://github.com/canthefason/go-
 
 * You can enable verbose logging to troubleshoot any issues
 * It uses faster file traversal thanks to `WalkDir` in Go 1.16
-* Folders created witin watched folders are automatically watched
+* Folders created within watched folders are automatically watched
     * This includes nested folders
     * It also handles drag-drop situations
 * You can configure build and run arguments
