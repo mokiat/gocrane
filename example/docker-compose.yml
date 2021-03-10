@@ -1,0 +1,10 @@
+version: '2.4'
+
+services:
+  example:
+    build: ./
+    image: 'example:latest'
+    volumes:
+      - "$PWD:/src/project"
+    ports:
+      - "8080:8080"

@@ -3,56 +3,43 @@ package project
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"os"
 	"os/exec"
 	"path/filepath"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/mokiat/gocrane/internal/logutil"
 )
 
-func NewBuilder(runDir string, args []string) (*Builder, error) {
-	tempDir, err := ioutil.TempDir("", "gocrane-*")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp directory: %w", err)
-	}
+func NewBuilder(runDir string, args []string) *Builder {
 	return &Builder{
-		runDir:  runDir,
-		tempDir: tempDir,
-		args:    args,
-	}, nil
+		runDir: runDir,
+		args:   args,
+	}
 }
 
 type Builder struct {
-	runDir  string
-	tempDir string
-	args    []string
+	runDir string
+	args   []string
 }
 
-func (b *Builder) Build(ctx context.Context) (string, error) {
-	fileName := fmt.Sprintf("executable-%s", uuid.NewV4())
-	path := filepath.Join(b.tempDir, fileName)
-
-	output := logWriter{
-		logger: log.New(log.Writer(), "[compiler]: ", log.Ltime|log.Lmsgprefix),
+func (b *Builder) Build(ctx context.Context, destination string) error {
+	absDestination, err := filepath.Abs(destination)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute destination for %q: %w", destination, err)
 	}
 
 	args := append([]string{"build"}, b.args...)
-	args = append(args, "-o", path, "./")
+	args = append(args, "-o", absDestination, "./")
+
+	logger := log.New(log.Writer(), "[compiler]: ", log.Ltime|log.Lmsgprefix)
+
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = b.runDir
-	cmd.Stdout = output
-	cmd.Stderr = output
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to run go build: %w", err)
-	}
-	return path, nil
-}
+	cmd.Stdout = logutil.ToWriter(logger)
+	cmd.Stderr = logutil.ToWriter(logger)
 
-func (b *Builder) Cleanup() error {
-	if err := os.RemoveAll(b.tempDir); err != nil {
-		return fmt.Errorf("failed to delete temp directory: %w", err)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to run go build: %w", err)
 	}
 	return nil
 }

@@ -3,45 +3,67 @@
 ![master status badge](https://github.com/mokiat/gocrane/workflows/Master/badge.svg)
 ![release status badge](https://github.com/mokiat/gocrane/workflows/Release/badge.svg)
 
-GoCrane is a tool to help run and rebuild applications running in a docker composed environment.
+GoCrane is a tool to help run and automatically rebuild applications in a `Docker` environment.
 
-This tool is heavily inspired by [go-watcher](https://github.com/canthefason/go-watcher) but makes a few improvements (verbose printing, automatic new directory watching, using cached builds). Normally I would prefer to contribute to the original project but I needed to troubleshoot a problem and found it easier/faster to roll out my own.
+This tool is heavily inspired by [go-watcher](https://github.com/canthefason/go-watcher) but has a few improvements:
 
-**WARNING:** This project is still in early Alpha stage and is subject to breaking changes (e.g. flag names).
+* You can enable verbose logging to troubleshoot any issues
+* It uses faster file traversal thanks to `WalkDir` in Go 1.16
+* Folders created within watched folders are automatically watched
+    * This includes nested folders
+    * It also handles drag-drop situations
+* You can configure build and run arguments
+* All configurations can also be specified through environment variables
+    * This reduces what would normally be one-line clutter
+* Is capable of skipping initial builds through a source digest comparison
+* It has a configurable batching duration, so that you can avoid excessive builds when fetching files
+* You can configure files and folders that should only trigger a restart and not a rebuild
+    * This can be useful for configuration files
+
+**WARNING:** This project is still young and is subject to breaking changes. Your best choice is to use the versioned [Docker images](https://hub.docker.com/r/mokiat/gocrane/tags) and not `latest`.
 
 ## User's Guide
 
-You can install the tool with the following command:
+It is important to understand how GoCrane works, so that you can configure it optimally and avoid unexpected behavior.
+
+GoCrane uses a number of configuration flags / options that relate to file paths. Such configuration options can often take a combination of folder paths, file paths, and glob patterns. You should check the documentation for each individual flag to see which combination of these are allowed.
+
+*Note:* Whenever GoCrane deals with paths it tries to convert those to absolute. Failure to do so would lead to errors and if there are multiple absolute forms of the same path, then the behavior is undefined. For most scenarios this should not be a problem but in general avoid symbolic links.
+
+GoCrane distinguishes between paths (folder or file) and glob patterns through a special prefix (`*/`) that glob patterns need to have. Globs are a means to express paths through wildcard patterns, however, GoCrane supports only patterns that are checked per path segment. That is, the pattern `*/*.go` is acceptable, whereas `*/hello/world.go` would not match anything.
+
+Here we will take a look at the most important flags that GoCrane provides. For the rest and their respective aliases and environment variable names, you should check `gocrane --help`.
+
+* `dir` - This flag specifies a folder that GoCrane should watch. It can be specified multiple times in which case GoCrane would watch all the specified folders. In addition, GoCrane watches recursively all sub-folders. You should NOT specify any files or glob patterns here. Most other flags are confined to the boundaries of the `dir` flags (i.e. if you were to specify a folder that is not contained by a watched folder, it would be ignored). By default this is set to the `./` or `PWD` folder.
+
+* `exclude-dir` - This flag specifies a folder or glob pattern for folders that should be ignored from watching. It is useful when you have sub-folders of watched folders that you don't want to be watched or evaluated (e.g. `.git`). This flag can be specified multiple times in which case if a directory matches any of the specified values it will be ignored. By default GoCrane sets this flag to a collection of reasonable glob patterns (like `.git`, `.vscode`, etc.). If you were to specify this flag, you would need to relist those.
+
+* `source` - This flag specifies a folder, filer, or glob pattern that indicates what files should be constituted as source code. This helps GoCrane decide whether a file change event should retrigger a rebuild and a following restart of the application. It is also used as means to determine which files should be used to calculate the digest. You can specify this flag any number of times and if a path matches any of the specified values, it will be considered as source code. By default GoCrane sets this flag to `*/*.go`. This should be sufficient for most use cases but if for example you are using some type of file embedding, then you may want to add non-go files as well, so that a rebuild would be triggered accordingly.
+
+* `exclude-source` - This flag specifies a folder, file, or glob pattern for files that should not be considered as source code, even if they match a `source` flag value. This flag can be specified multiple times. By default GoCrane sets this to `*/*_test.go` so that test files do not trigger a rebuild.
+
+* `resource` - This flag specifies a folder, file, or glob pattern for files that should be considered as resources. A change to such files would make GoCrane restart, but NOT rebuild, your application. This flag can be specified multiple times. It is mostly useful if your application reads data from the filesystem (e.g. configuration files) during startup. By default GoCrane does not have this flag set, hence no file is considred a resource.
+
+* `exclude-resource` - This flag specifies a folder, file, or glob pattern for files that should not be considered as resources, even if they match a `resource` flag value. It can be specified multiple times. By default GoCrane has this file set to a number of common files (e.g. `Dockerfile`, `README.md`, `.gitignore`) that are unlikely to be used by your application. If you set this flag, you would need to list your own defaults.
+
+* `main` - This flag specifies the folder where your application's main package is located. Unlike previous flags, this one can point to a location that is not specified through a `dir` flag, however, this would rarely ever be meaningful, since it is likely that you would like to have GoCrane rebuild and restart your application when a Go file in the main package changes.
+
+* `binary` - This flag specifies an executable that GoCrane should use when starting up, instead of rebuilding your application, as this could be a CPU-intensive operation, especially if you have multiple GoCrane-managed applications starting at the same time. You should only specify this flag with the `gocrane run` command if the binary you reference has been built with `gocrane build`, since GoCrane would look for a `<executable>.dig` file to compare digest sums. If the digest sums don't match (which means that the source code you have mounted in the container has changed since `gocrane build` was used), GoCrane would default to triggering a rebuild and will not use the executable.
+
+### Using in Docker-Compose
+
+The main purpose of gocrane is to be used within a `Docker` or `docker-compose` environment. You can check the included [example](https://github.com/mokiat/gocrane/tree/master/example), which showcases how GoCrane can be used to detect changes while you develop a project locally.
+
+**Note:** If you want to make use of the caching behavior, make sure to use `docker-compose build --no-cache example` once you are satisfied with your changes to `example`. Future starts of `docker-compose up` would not trigger a build until you make changes to the source code on the host machine.
+
+### Using locally
+
+To use the tool locally, you can get it as follows (Go 1.16+):
 
 ```sh
-GO111MODULE=on go get github.com/mokiat/gocrane
+go install github.com/mokiat/gocrane@latest
 ```
 
-Alternatively, you can include the executable in your Docker image as follows:
+Normally, it would be sufficient to run `gocrane run` in the root folder of your project. If the `main` package is not located in the root folder (e.g. in `./cmd/executable/`), you would need to use the `main` flag to specify that.
 
-```dockerfile
-FROM mokiat/gocrane:latest AS gocrane
-
-FROM ... # your base image here
-# your Dockerfile stuff here
-COPY --from=gocrane /bin/gocrane /bin/gocrane
-```
-
-If you are already in the project folder, you can simply run `gocrane`.
-
-The tool supports the following flags for more custom configuration:
-
-* `--verbose, -v` - Enables verbose logging. Good for troubleshooting issues.
-* `--path, -p` - Specifies a path to watch recursively. This flag can be specified multiple times if multiple root directories should be watched.
-* `--exclude, -e` - Specifies a path to exclude from watching. This flag can be specified multiple times if multiple directory branches are to be excluded.
-* `--glob-exclude, -ge` - Specifies a glob pattern for files and directories that should be excluded. Can be specified multiple times. The pattern works only for a single path segment (e.g. `vendor`, `.DS_Store`, `*_test.go`)
-* `--run, -r` - Specifies the folder that includes the `main` package to be run.
-* `--cache, -c` - Specifies a pre-build executable to use the first time. This is useful when using `gocrane` with Docker images that have the built executable available to avoid unnecessary initial builds on startup.
-* `--args` - Specifies arguments to pass when starting the built executable.
-* `--build-args` - Specifies arguments to pass to `go build` (when compiling the executable)
-
-By default `gocrane` excludes the following glob patterns:
-
-* `.git`
-* `.DS_Store`
-* `.vscode`
+For more information, consult `gocrane --help`.
