@@ -13,6 +13,8 @@ import (
 	"github.com/mokiat/gocrane/internal/project"
 )
 
+const ForceBuildPath = "/gocrane/fake/forced/build"
+
 func Build(
 	ctx context.Context,
 	mainDir string,
@@ -36,6 +38,7 @@ func Build(
 	}()
 
 	builder := project.NewBuilder(mainDir, buildArgs)
+	forceBuildFilter := location.PathFilter(ForceBuildPath)
 
 	return func() error {
 		var lastBinary string
@@ -46,7 +49,8 @@ func Build(
 
 		var changeEvent ChangeEvent
 		for in.Pop(ctx, &changeEvent) {
-			shouldBuild := location.MatchAny(rebuildFilter, changeEvent.Paths)
+			shouldBuild := location.MatchAny(rebuildFilter, changeEvent.Paths) ||
+				location.MatchAny(forceBuildFilter, changeEvent.Paths)
 			shouldRestart := location.MatchAny(restartFilter, changeEvent.Paths)
 
 			// Skip this change event. The changed files are not of relevance.

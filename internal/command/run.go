@@ -91,10 +91,14 @@ func run(ctx context.Context, cfg runConfig) error {
 			}
 		} else {
 			log.Printf("digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
-			fakeChangeEvent = &pipeline.ChangeEvent{}
+			fakeChangeEvent = &pipeline.ChangeEvent{
+				Paths: []string{pipeline.ForceBuildPath},
+			}
 		}
 	} else {
-		fakeChangeEvent = &pipeline.ChangeEvent{}
+		fakeChangeEvent = &pipeline.ChangeEvent{
+			Paths: []string{pipeline.ForceBuildPath},
+		}
 	}
 
 	log.Println("starting pipeline...")
