@@ -7,8 +7,8 @@ import (
 
 func Batch(
 	ctx context.Context,
-	in ChangeEventQueue,
-	out ChangeEventQueue,
+	in Queue[ChangeEvent],
+	out Queue[ChangeEvent],
 	batchDuration time.Duration,
 ) func() error {
 

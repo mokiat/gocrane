@@ -12,7 +12,7 @@ import (
 func Run(
 	ctx context.Context,
 	runArgs []string,
-	in BuildEventQueue,
+	in Queue[BuildEvent],
 	shutdownTimeout time.Duration,
 ) func() error {
 
