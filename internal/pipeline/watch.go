@@ -17,7 +17,7 @@ func Watch(
 	verbose bool,
 	dirs []string,
 	watchFilter location.Filter,
-	out ChangeEventQueue,
+	out Queue[ChangeEvent],
 	bootstrapEvent *ChangeEvent,
 
 ) func() error {

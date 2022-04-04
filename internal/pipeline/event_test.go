@@ -19,17 +19,15 @@ var _ = Describe("Event", func() {
 		closedCtx = ctx
 	})
 
-	Describe("ChangeEventQueue", func() {
+	Describe("Queue", func() {
 		var (
-			queue pipeline.ChangeEventQueue
-			event pipeline.ChangeEvent
+			queue pipeline.Queue[int]
+			event int
 		)
 
 		BeforeEach(func() {
-			queue = make(pipeline.ChangeEventQueue)
-			event = pipeline.ChangeEvent{
-				Paths: []string{"/path"},
-			}
+			queue = make(pipeline.Queue[int])
+			event = 132
 		})
 
 		Describe("Push", func() {
@@ -40,14 +38,14 @@ var _ = Describe("Event", func() {
 			})
 
 			It("accepts when there is a receiver", func() {
-				receivedEvents := make(chan pipeline.ChangeEvent)
+				receivedEvents := make(chan int)
 				go func() {
 					ev := <-queue
 					receivedEvents <- ev
 				}()
 				Expect(queue.Push(context.Background(), event)).To(BeTrue())
 
-				var receivedEvent pipeline.ChangeEvent
+				var receivedEvent int
 				Eventually(receivedEvents).Should(Receive(&receivedEvent))
 				Expect(receivedEvent).To(Equal(event))
 			})
@@ -59,77 +57,19 @@ var _ = Describe("Event", func() {
 					queue <- event
 				}()
 
-				var receivedEvent pipeline.ChangeEvent
+				var receivedEvent int
 				Expect(queue.Pop(context.Background(), &receivedEvent)).To(BeTrue())
 				Expect(receivedEvent).To(Equal(event))
 			})
 
 			It("returns when context is closed", func() {
-				var receivedEvent pipeline.ChangeEvent
+				var receivedEvent int
 				Expect(queue.Pop(closedCtx, &receivedEvent)).To(BeFalse())
 			})
 
 			It("returns when queue is closed", func() {
 				close(queue)
-				var receivedEvent pipeline.ChangeEvent
-				Expect(queue.Pop(context.Background(), &receivedEvent)).To(BeFalse())
-			})
-		})
-	})
-
-	Describe("BuildEventQueue", func() {
-		var (
-			queue pipeline.BuildEventQueue
-			event pipeline.BuildEvent
-		)
-
-		BeforeEach(func() {
-			queue = make(pipeline.BuildEventQueue)
-			event = pipeline.BuildEvent{
-				Path: "/path",
-			}
-		})
-
-		Describe("Push", func() {
-			It("returns when context is closed", func() {
-				Expect(queue.Push(closedCtx, event)).To(BeFalse())
-
-				Consistently(queue).ShouldNot(Receive())
-			})
-
-			It("accepts when there is a receiver", func() {
-				receivedEvents := make(chan pipeline.BuildEvent)
-				go func() {
-					ev := <-queue
-					receivedEvents <- ev
-				}()
-				Expect(queue.Push(context.Background(), event)).To(BeTrue())
-
-				var receivedEvent pipeline.BuildEvent
-				Eventually(receivedEvents).Should(Receive(&receivedEvent))
-				Expect(receivedEvent).To(Equal(event))
-			})
-		})
-
-		Describe("Pop", func() {
-			It("returns when there is a queued event", func() {
-				go func() {
-					queue <- event
-				}()
-
-				var receivedEvent pipeline.BuildEvent
-				Expect(queue.Pop(context.Background(), &receivedEvent)).To(BeTrue())
-				Expect(receivedEvent).To(Equal(event))
-			})
-
-			It("returns when context is closed", func() {
-				var receivedEvent pipeline.BuildEvent
-				Expect(queue.Pop(closedCtx, &receivedEvent)).To(BeFalse())
-			})
-
-			It("returns when queue is closed", func() {
-				close(queue)
-				var receivedEvent pipeline.BuildEvent
+				var receivedEvent int
 				Expect(queue.Pop(context.Background(), &receivedEvent)).To(BeFalse())
 			})
 		})

@@ -102,9 +102,9 @@ func run(ctx context.Context, cfg runConfig) error {
 	}
 
 	log.Println("starting pipeline...")
-	changeEventQueue := make(pipeline.ChangeEventQueue, 1024)
-	batchChangeEventQueue := make(pipeline.ChangeEventQueue)
-	buildEventQueue := make(pipeline.BuildEventQueue)
+	changeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent], 1024)
+	batchChangeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent])
+	buildEventQueue := make(pipeline.Queue[pipeline.BuildEvent])
 
 	group, groupCtx := errgroup.WithContext(ctx)
 
