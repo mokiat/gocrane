@@ -27,7 +27,7 @@ func main() {
 	log.Println("listening...")
 	go func() {
 		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("http server error: %s\n", err)
+			log.Fatalf("http server error: %v\n", err)
 		}
 	}()
 
@@ -38,7 +38,7 @@ func main() {
 
 	log.Println("shutting down...")
 	if err := server.Shutdown(context.Background()); err != nil {
-		log.Fatalf("failed to shutdown server: %w", err)
+		log.Fatalf("failed to shutdown server: %v\n", err)
 	}
 	log.Println("good bye")
 }
