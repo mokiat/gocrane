@@ -6,8 +6,10 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/gohugoio/hugo/watcher/filenotify"
 
 	"github.com/mokiat/gocrane/internal/location"
 )
@@ -32,10 +34,7 @@ func Watch(
 			}
 		}
 
-		watcher, err := fsnotify.NewWatcher()
-		if err != nil {
-			return fmt.Errorf("failed to create filesystem watcher: %w", err)
-		}
+		watcher := filenotify.NewPollingWatcher(1 * time.Second)
 		defer watcher.Close()
 
 		watchedPaths := make(map[string]struct{})
@@ -124,9 +123,9 @@ func Watch(
 			select {
 			case <-ctx.Done():
 				return nil
-			case event := <-watcher.Events:
+			case event := <-watcher.Events():
 				processFSEvent(event)
-			case err := <-watcher.Errors:
+			case err := <-watcher.Errors():
 				log.Printf("filesystem watcher error: %v", err)
 			}
 		}
