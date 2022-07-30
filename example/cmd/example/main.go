@@ -24,10 +24,10 @@ func main() {
 		Handler: mux,
 	}
 
-	log.Println("listening...")
+	log.Println("Listening...")
 	go func() {
 		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("http server error: %s\n", err)
+			log.Fatalf("Failed to start HTTP server: %v", err)
 		}
 	}()
 
@@ -36,9 +36,9 @@ func main() {
 	defer signal.Stop(sigChan)
 	<-sigChan
 
-	log.Println("shutting down...")
+	log.Println("Shutting down...")
 	if err := server.Shutdown(context.Background()); err != nil {
-		log.Fatalf("failed to shutdown server: %w", err)
+		log.Fatalf("Failed to shutdown server: %v", err)
 	}
-	log.Println("good bye")
+	log.Println("Good bye")
 }
