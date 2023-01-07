@@ -13,6 +13,9 @@ var _ = Describe("WatchTree", func() {
 	BeforeEach(func() {
 		tree = filesystem.NewWatchTree()
 
+		tree.IgnoreGlob(filesystem.Glob("*_test.go"))
+		tree.WatchGlob(filesystem.Glob("*important*"))
+
 		tree.Watch(filesystem.Path{
 			"users",
 		})
@@ -65,5 +68,17 @@ var _ = Describe("WatchTree", func() {
 		Expect(tree.NavigatePath(filesystem.Path{}).ShouldWatch()).To(BeFalse())
 		Expect(tree.NavigatePath(filesystem.Path{"users", "john", "documents", "memos"}).ShouldWatch()).To(BeTrue())
 		Expect(tree.NavigatePath(filesystem.Path{"users", "john", "documents", "memos", "travel", "japan"}).ShouldWatch()).To(BeFalse())
+	})
+
+	Specify("segments matching ignored globs should not be watched", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("jane").Navigate("data_test.go").ShouldWatch()).To(BeFalse())
+	})
+
+	Specify("segments matching watched globs should be watched", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("some_important_items").ShouldWatch()).To(BeTrue())
+	})
+
+	Specify("watched globs supersede ignored globs", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("some_important_items_test.go").ShouldWatch()).To(BeTrue())
 	})
 })
