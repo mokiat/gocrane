@@ -25,6 +25,14 @@ func (t *WatchTree) Navigate() WatchCursor {
 	}
 }
 
+func (t *WatchTree) NavigatePath(path Path) WatchCursor {
+	cursor := t.Navigate()
+	for _, segment := range path {
+		cursor = cursor.Navigate(segment)
+	}
+	return cursor
+}
+
 func newWatchNode() *watchNode {
 	return &watchNode{
 		children: make(map[string]*watchNode),

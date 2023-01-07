@@ -43,10 +43,10 @@ var _ = Describe("WatchTree", func() {
 	})
 
 	Specify("ignored segments should not be watched", func() {
-		Expect(tree.Navigate().Navigate("max").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("john").Navigate("documents").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("alice").ShouldWatch()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("max").ShouldWatch()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").ShouldWatch()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").ShouldWatch()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("alice").ShouldWatch()).To(BeFalse())
 	})
 
 	Specify("segments after watched segments should be watched", func() {
@@ -55,9 +55,15 @@ var _ = Describe("WatchTree", func() {
 	})
 
 	Specify("segments after ignored segments should not be watched", func() {
-		Expect(tree.Navigate().Navigate("max").Navigate("documents").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("john").Navigate("documents").Navigate("videos").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").Navigate("tokyo").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("alice").Navigate("contacts").ShouldWatch()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("documents").ShouldWatch()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("videos").ShouldWatch()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").Navigate("tokyo").ShouldWatch()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("alice").Navigate("contacts").ShouldWatch()).To(BeFalse())
+	})
+
+	Specify("paths can be navigated in a single step", func() {
+		Expect(tree.NavigatePath(filesystem.Path{}).ShouldWatch()).To(BeFalse())
+		Expect(tree.NavigatePath(filesystem.Path{"users", "john", "documents", "memos"}).ShouldWatch()).To(BeTrue())
+		Expect(tree.NavigatePath(filesystem.Path{"users", "john", "documents", "memos", "travel", "japan"}).ShouldWatch()).To(BeFalse())
 	})
 })
