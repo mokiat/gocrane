@@ -2,13 +2,21 @@ package filesystem
 
 import "path/filepath"
 
+// NewWatchTree creates a new empty WatchTree instance.
 func NewWatchTree() *WatchTree {
 	return &WatchTree{
 		root: newWatchNode(),
 	}
 }
 
+// WatchTree is a data structure that can be used to mark specific filesystem
+// paths as watchable or to be ignored. In addition, it provides mechanisms
+// to control that globally through generic glob patterns.
+//
+// NOTE: This structure does not actually perform the watching. It just acts
+// as a form of filter.
 type WatchTree struct {
+
 	// pattern related filtering
 	watchPatterns  []string
 	ignorePatterns []string
@@ -17,22 +25,30 @@ type WatchTree struct {
 	root *watchNode
 }
 
+// WatchGlob requests that sub-paths of a path segment that matches
+// the specified glob should be watched.
 func (t *WatchTree) WatchGlob(glob string) {
 	t.watchPatterns = append(t.watchPatterns, Pattern(glob))
 }
 
+// IgnoreGlob requests that sub-paths of a path segment that matches
+// the specified glob should not be watched.
 func (t *WatchTree) IgnoreGlob(glob string) {
 	t.ignorePatterns = append(t.ignorePatterns, Pattern(glob))
 }
 
+// Watch requests that the specified path be watched.
 func (t *WatchTree) Watch(path Path) {
 	t.watchRelativePath(t.root, path)
 }
 
+// Ignore requests that the specified path be ignored.
 func (t *WatchTree) Ignore(path Path) {
 	t.ignoreRelativePath(t.root, path)
 }
 
+// Navigate starts traversing the WatchTree beginning with the root
+// for which a WatchCursor is returned.
 func (t *WatchTree) Navigate() WatchCursor {
 	return WatchCursor{
 		watchPatterns:  t.watchPatterns,
@@ -42,6 +58,8 @@ func (t *WatchTree) Navigate() WatchCursor {
 	}
 }
 
+// NavigatePath is a helper function that performs a sequence of Navigate
+// calls using the specified Path as a guide.
 func (t *WatchTree) NavigatePath(path Path) WatchCursor {
 	cursor := t.Navigate()
 	for _, segment := range path {
@@ -90,6 +108,7 @@ type watchNode struct {
 	shouldIgnore bool
 }
 
+// WatchCursor represents a particular path location in a WatchTree.
 type WatchCursor struct {
 	watchPatterns  []string
 	ignorePatterns []string
@@ -97,10 +116,16 @@ type WatchCursor struct {
 	shouldWatch    bool
 }
 
+// ShouldWatch returns whether the (sub-)path that is referenced by this
+// WatchCursor should be watched.
 func (c WatchCursor) ShouldWatch() bool {
 	return c.shouldWatch
 }
 
+// Navigate returns a new WatchCursor that is the result of advancing the
+// existing cursor along the path using the specified segment.
+//
+// NOTE: The current cursor is not modified.
 func (c WatchCursor) Navigate(segment string) WatchCursor {
 	var (
 		childNode        *watchNode
