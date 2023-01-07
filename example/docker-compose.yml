@@ -2,9 +2,10 @@ version: '2.4'
 
 services:
   example:
+    container_name: example
     build: ./
     image: 'example:latest'
     volumes:
-      - "$PWD:/src/project"
+      - "./:/src/project"
     ports:
       - "8080:8080"
