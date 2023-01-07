@@ -76,8 +76,8 @@ func (c WatchCursor) Navigate(segment string) WatchCursor {
 	if c.node == nil {
 		return c // can't navigate further, use last state as indicative
 	}
-	childNode := c.node.children[segment]
-	if childNode == nil {
+	childNode, ok := c.node.children[segment]
+	if !ok {
 		return WatchCursor{
 			node:        nil,
 			shouldWatch: c.shouldWatch,
