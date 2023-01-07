@@ -1,7 +1,7 @@
-FROM golang:1.18 as builder
+FROM golang:1.19 as builder
 COPY ./ /src/project
 WORKDIR /src/project
 RUN CGO_ENABLED=0 go build -o '/bin/gocrane' './'
 
-FROM alpine:3.15
+FROM alpine:3.17
 COPY --from=builder /bin/gocrane /bin/gocrane

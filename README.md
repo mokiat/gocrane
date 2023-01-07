@@ -58,7 +58,7 @@ The main purpose of gocrane is to be used within a `Docker` or `docker-compose` 
 
 ### Using locally
 
-To use the tool locally, you can get it as follows (Go 1.18+):
+To use the tool locally, you can get it as follows (Go 1.19+):
 
 ```sh
 go install github.com/mokiat/gocrane@latest

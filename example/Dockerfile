@@ -1,6 +1,6 @@
 FROM mokiat/gocrane:latest AS gocrane
 
-FROM golang:1.18
+FROM golang:1.19
 COPY --from=gocrane /bin/gocrane /bin/gocrane
 COPY . /src/project
 WORKDIR /src/project
