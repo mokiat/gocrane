@@ -2,65 +2,64 @@ package filesystem
 
 import "path/filepath"
 
-// NewWatchTree creates a new empty WatchTree instance.
-func NewWatchTree() *WatchTree {
-	return &WatchTree{
-		root: newWatchNode(),
+// NewFilterTree creates a new empty FilterTree instance.
+func NewFilterTree() *FilterTree {
+	return &FilterTree{
+		root: newFilterTreeNode(),
 	}
 }
 
-// WatchTree is a data structure that can be used to mark specific filesystem
-// paths as watchable or to be ignored. In addition, it provides mechanisms
-// to control that globally through generic glob patterns.
-//
-// NOTE: This structure does not actually perform the watching. It just acts
-// as a form of filter.
-type WatchTree struct {
+// FilterTree is a data structure that can be used to mark specific filesystem
+// paths as accepted and others as rejected. This can also be achieved through
+// global glob patterns.
+// The structure then provides a means through which one can test whether
+// a given file path is accepted or rejected by the filter.
+type FilterTree struct {
 
 	// pattern related filtering
-	watchPatterns  []string
-	ignorePatterns []string
+	acceptPatterns []string
+	rejectPatterns []string
 
 	// directory related filtering
-	root *watchNode
+	root *filterTreeNode
 }
 
-// WatchGlob requests that sub-paths of a path segment that matches
-// the specified glob should be watched.
-func (t *WatchTree) WatchGlob(glob string) {
-	t.watchPatterns = append(t.watchPatterns, Pattern(glob))
+// AcceptGlob requests that sub-paths of a path segment that matches
+// the specified glob should be accepted.
+func (t *FilterTree) AcceptGlob(glob string) {
+	t.acceptPatterns = append(t.acceptPatterns, Pattern(glob))
 }
 
-// IgnoreGlob requests that sub-paths of a path segment that matches
-// the specified glob should not be watched.
-func (t *WatchTree) IgnoreGlob(glob string) {
-	t.ignorePatterns = append(t.ignorePatterns, Pattern(glob))
+// RejectGlob requests that sub-paths of a path segment that matches
+// the specified glob should not be accepted.
+func (t *FilterTree) RejectGlob(glob string) {
+	t.rejectPatterns = append(t.rejectPatterns, Pattern(glob))
 }
 
-// Watch requests that the specified path be watched.
-func (t *WatchTree) Watch(path Path) {
-	t.watchRelativePath(t.root, path.Relative())
+// AcceptPath requests that the specified path be accepted.
+func (t *FilterTree) AcceptPath(path Path) {
+	t.acceptRelativePath(t.root, path.Relative())
 }
 
-// Ignore requests that the specified path be ignored.
-func (t *WatchTree) Ignore(path Path) {
-	t.ignoreRelativePath(t.root, path.Relative())
+// RejectPath requests that the specified path be rejected.
+func (t *FilterTree) RejectPath(path Path) {
+	t.rejectRelativePath(t.root, path.Relative())
 }
 
-// Navigate starts traversing the WatchTree beginning with the root
-// for which a WatchCursor is returned.
-func (t *WatchTree) Navigate() WatchCursor {
-	return WatchCursor{
-		watchPatterns:  t.watchPatterns,
-		ignorePatterns: t.ignorePatterns,
+// Navigate starts traversing the FilterTree beginning with the root
+// for which a FilterTreeCursor is returned.
+func (t *FilterTree) Navigate() FilterTreeCursor {
+	return FilterTreeCursor{
+		acceptPatterns: t.acceptPatterns,
+		rejectPatterns: t.rejectPatterns,
 		node:           t.root,
-		shouldWatch:    t.root.shouldWatch,
+		isAccepted:     t.root.shouldAccept,
 	}
 }
 
 // NavigatePath is a helper function that performs a sequence of Navigate
 // calls using the specified Path as a guide.
-func (t *WatchTree) NavigatePath(path Path) WatchCursor {
+func (t *FilterTree) NavigatePath(path Path) FilterTreeCursor {
 	cursor := t.Navigate()
 	path = path.Relative()
 	for len(path) > 0 {
@@ -71,68 +70,68 @@ func (t *WatchTree) NavigatePath(path Path) WatchCursor {
 	return cursor
 }
 
-func (t *WatchTree) watchRelativePath(node *watchNode, childPath Path) {
+func (t *FilterTree) acceptRelativePath(node *filterTreeNode, childPath Path) {
 	if len(childPath) == 0 {
-		node.shouldWatch = true
+		node.shouldAccept = true
 		return
 	}
 	childName, nextChildPath := childPath.CutSegment()
 	childNode, ok := node.children[childName]
 	if !ok {
-		childNode = newWatchNode()
+		childNode = newFilterTreeNode()
 		node.children[childName] = childNode
 	}
-	t.watchRelativePath(childNode, nextChildPath)
+	t.acceptRelativePath(childNode, nextChildPath)
 }
 
-func (t *WatchTree) ignoreRelativePath(node *watchNode, childPath Path) {
+func (t *FilterTree) rejectRelativePath(node *filterTreeNode, childPath Path) {
 	if len(childPath) == 0 {
-		node.shouldIgnore = true
+		node.shouldReject = true
 		return
 	}
 	childName, nextChildPath := childPath.CutSegment()
 	childNode, ok := node.children[childName]
 	if !ok {
-		childNode = newWatchNode()
+		childNode = newFilterTreeNode()
 		node.children[childName] = childNode
 	}
-	t.ignoreRelativePath(childNode, nextChildPath)
+	t.rejectRelativePath(childNode, nextChildPath)
 }
 
-func newWatchNode() *watchNode {
-	return &watchNode{
-		children: make(map[string]*watchNode),
+func newFilterTreeNode() *filterTreeNode {
+	return &filterTreeNode{
+		children: make(map[string]*filterTreeNode),
 	}
 }
 
-type watchNode struct {
-	children     map[string]*watchNode
-	shouldWatch  bool
-	shouldIgnore bool
+type filterTreeNode struct {
+	children     map[string]*filterTreeNode
+	shouldAccept bool
+	shouldReject bool
 }
 
-// WatchCursor represents a particular path location in a WatchTree.
-type WatchCursor struct {
-	watchPatterns  []string
-	ignorePatterns []string
-	node           *watchNode
-	shouldWatch    bool
+// FilterTreeCursor represents a particular path location in a FilterTree.
+type FilterTreeCursor struct {
+	acceptPatterns []string
+	rejectPatterns []string
+	node           *filterTreeNode
+	isAccepted     bool
 }
 
-// ShouldWatch returns whether the (sub-)path that is referenced by this
-// WatchCursor should be watched.
-func (c WatchCursor) ShouldWatch() bool {
-	return c.shouldWatch
+// IsAccepted returns whether the (sub-)path that is referenced by this
+// FilterTreeCursor is accepted.
+func (c FilterTreeCursor) IsAccepted() bool {
+	return c.isAccepted
 }
 
-// Navigate returns a new WatchCursor that is the result of advancing the
+// Navigate returns a new FilterTreeCursor that is the result of advancing the
 // existing cursor along the path using the specified segment.
 //
 // NOTE: The current cursor is not modified.
-func (c WatchCursor) Navigate(segment string) WatchCursor {
+func (c FilterTreeCursor) Navigate(segment string) FilterTreeCursor {
 	var (
-		childNode        *watchNode
-		shouldWatchChild = c.shouldWatch
+		childNode       *filterTreeNode
+		childIsAccepted = c.isAccepted
 	)
 
 	// try and get a child node
@@ -142,31 +141,31 @@ func (c WatchCursor) Navigate(segment string) WatchCursor {
 
 	// check path rules
 	if childNode != nil {
-		if childNode.shouldIgnore {
-			shouldWatchChild = false
+		if childNode.shouldReject {
+			childIsAccepted = false
 		}
-		if childNode.shouldWatch {
-			shouldWatchChild = true
+		if childNode.shouldAccept {
+			childIsAccepted = true
 		}
 	}
 	// check pattern rules
-	if c.isSegmentPatternIgnored(segment) {
-		shouldWatchChild = false
+	if c.isSegmentPatternRejected(segment) {
+		childIsAccepted = false
 	}
-	if c.isSegmentPatternWatched(segment) {
-		shouldWatchChild = true
+	if c.isSegmentPatternAccepted(segment) {
+		childIsAccepted = true
 	}
 
-	return WatchCursor{
-		watchPatterns:  c.watchPatterns,
-		ignorePatterns: c.ignorePatterns,
+	return FilterTreeCursor{
+		acceptPatterns: c.acceptPatterns,
+		rejectPatterns: c.rejectPatterns,
 		node:           childNode,
-		shouldWatch:    shouldWatchChild,
+		isAccepted:     childIsAccepted,
 	}
 }
 
-func (c WatchCursor) isSegmentPatternWatched(segment string) bool {
-	for _, pattern := range c.watchPatterns {
+func (c FilterTreeCursor) isSegmentPatternAccepted(segment string) bool {
+	for _, pattern := range c.acceptPatterns {
 		if ok, err := filepath.Match(pattern, segment); err == nil && ok {
 			return true
 		}
@@ -174,8 +173,8 @@ func (c WatchCursor) isSegmentPatternWatched(segment string) bool {
 	return false
 }
 
-func (c WatchCursor) isSegmentPatternIgnored(segment string) bool {
-	for _, pattern := range c.ignorePatterns {
+func (c FilterTreeCursor) isSegmentPatternRejected(segment string) bool {
+	for _, pattern := range c.rejectPatterns {
 		if ok, err := filepath.Match(pattern, segment); err == nil && ok {
 			return true
 		}

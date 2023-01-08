@@ -7,67 +7,67 @@ import (
 	"github.com/mokiat/gocrane/internal/filesystem"
 )
 
-var _ = Describe("WatchTree", func() {
-	var tree *filesystem.WatchTree
+var _ = Describe("FilterTree", func() {
+	var tree *filesystem.FilterTree
 
 	BeforeEach(func() {
-		tree = filesystem.NewWatchTree()
+		tree = filesystem.NewFilterTree()
 
-		tree.WatchGlob(filesystem.Glob("*important*"))
-		tree.IgnoreGlob(filesystem.Glob("*_test.go"))
+		tree.AcceptGlob(filesystem.Glob("*important*"))
+		tree.RejectGlob(filesystem.Glob("*_test.go"))
 
-		tree.Watch("/users")
-		tree.Ignore("/users/max")
-		tree.Ignore("/users/john/documents")
-		tree.Watch("/users/john/documents/memos")
-		tree.Ignore("/users/john/documents/memos/travel/japan")
-		tree.Ignore("/users/alice")
+		tree.AcceptPath("/users")
+		tree.RejectPath("/users/max")
+		tree.RejectPath("/users/john/documents")
+		tree.AcceptPath("/users/john/documents/memos")
+		tree.RejectPath("/users/john/documents/memos/travel/japan")
+		tree.RejectPath("/users/alice")
 	})
 
-	Specify("root should not be watched", func() {
-		Expect(tree.Navigate().ShouldWatch()).To(BeFalse())
+	Specify("root should not be accepted", func() {
+		Expect(tree.Navigate().IsAccepted()).To(BeFalse())
 	})
 
-	Specify("watched segments should be watched", func() {
-		Expect(tree.Navigate().Navigate("users").ShouldWatch()).To(BeTrue())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").ShouldWatch()).To(BeTrue())
+	Specify("segments of accepted paths should be accepted", func() {
+		Expect(tree.Navigate().Navigate("users").IsAccepted()).To(BeTrue())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").IsAccepted()).To(BeTrue())
 	})
 
-	Specify("ignored segments should not be watched", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("max").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("alice").ShouldWatch()).To(BeFalse())
+	Specify("segments of rejected paths should be rejected", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("max").IsAccepted()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").IsAccepted()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").IsAccepted()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("alice").IsAccepted()).To(BeFalse())
 	})
 
-	Specify("segments after watched segments should be watched", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("jane").ShouldWatch()).To(BeTrue())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("work").ShouldWatch()).To(BeTrue())
+	Specify("segments after accepted path segments should be accepted", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("jane").IsAccepted()).To(BeTrue())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("work").IsAccepted()).To(BeTrue())
 	})
 
-	Specify("segments after ignored segments should not be watched", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("documents").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("videos").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").Navigate("tokyo").ShouldWatch()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("alice").Navigate("contacts").ShouldWatch()).To(BeFalse())
+	Specify("segments after rejected path segments should be rejected", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("documents").IsAccepted()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("videos").IsAccepted()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").Navigate("tokyo").IsAccepted()).To(BeFalse())
+		Expect(tree.Navigate().Navigate("users").Navigate("alice").Navigate("contacts").IsAccepted()).To(BeFalse())
 	})
 
 	Specify("paths can be navigated in a single step", func() {
-		Expect(tree.NavigatePath("/").ShouldWatch()).To(BeFalse())
-		Expect(tree.NavigatePath("").ShouldWatch()).To(BeFalse())
-		Expect(tree.NavigatePath("/users/john/documents/memos").ShouldWatch()).To(BeTrue())
-		Expect(tree.NavigatePath("/users/john/documents/memos/travel/japan").ShouldWatch()).To(BeFalse())
+		Expect(tree.NavigatePath("/").IsAccepted()).To(BeFalse())
+		Expect(tree.NavigatePath("").IsAccepted()).To(BeFalse())
+		Expect(tree.NavigatePath("/users/john/documents/memos").IsAccepted()).To(BeTrue())
+		Expect(tree.NavigatePath("/users/john/documents/memos/travel/japan").IsAccepted()).To(BeFalse())
 	})
 
-	Specify("segments matching ignored globs should not be watched", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("jane").Navigate("data_test.go").ShouldWatch()).To(BeFalse())
+	Specify("segments matching rejected globs should be rejected", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("jane").Navigate("data_test.go").IsAccepted()).To(BeFalse())
 	})
 
-	Specify("segments matching watched globs should be watched", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("some_important_items").ShouldWatch()).To(BeTrue())
+	Specify("segments matching accepted globs should be accepted", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("some_important_items").IsAccepted()).To(BeTrue())
 	})
 
-	Specify("watched globs supersede ignored globs", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("some_important_items_test.go").ShouldWatch()).To(BeTrue())
+	Specify("accepted globs supersede rejected globs", func() {
+		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("some_important_items_test.go").IsAccepted()).To(BeTrue())
 	})
 })
