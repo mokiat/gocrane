@@ -39,12 +39,12 @@ func (t *WatchTree) IgnoreGlob(glob string) {
 
 // Watch requests that the specified path be watched.
 func (t *WatchTree) Watch(path Path) {
-	t.watchRelativePath(t.root, path)
+	t.watchRelativePath(t.root, path.Relative())
 }
 
 // Ignore requests that the specified path be ignored.
 func (t *WatchTree) Ignore(path Path) {
-	t.ignoreRelativePath(t.root, path)
+	t.ignoreRelativePath(t.root, path.Relative())
 }
 
 // Navigate starts traversing the WatchTree beginning with the root
@@ -62,8 +62,11 @@ func (t *WatchTree) Navigate() WatchCursor {
 // calls using the specified Path as a guide.
 func (t *WatchTree) NavigatePath(path Path) WatchCursor {
 	cursor := t.Navigate()
-	for _, segment := range path {
+	path = path.Relative()
+	for len(path) > 0 {
+		segment, nextChildPath := path.CutSegment()
 		cursor = cursor.Navigate(segment)
+		path = nextChildPath
 	}
 	return cursor
 }
@@ -73,13 +76,13 @@ func (t *WatchTree) watchRelativePath(node *watchNode, childPath Path) {
 		node.shouldWatch = true
 		return
 	}
-	childName := childPath[0]
+	childName, nextChildPath := childPath.CutSegment()
 	childNode, ok := node.children[childName]
 	if !ok {
 		childNode = newWatchNode()
 		node.children[childName] = childNode
 	}
-	t.watchRelativePath(childNode, childPath[1:])
+	t.watchRelativePath(childNode, nextChildPath)
 }
 
 func (t *WatchTree) ignoreRelativePath(node *watchNode, childPath Path) {
@@ -87,13 +90,13 @@ func (t *WatchTree) ignoreRelativePath(node *watchNode, childPath Path) {
 		node.shouldIgnore = true
 		return
 	}
-	childName := childPath[0]
+	childName, nextChildPath := childPath.CutSegment()
 	childNode, ok := node.children[childName]
 	if !ok {
 		childNode = newWatchNode()
 		node.children[childName] = childNode
 	}
-	t.ignoreRelativePath(childNode, childPath[1:])
+	t.ignoreRelativePath(childNode, nextChildPath)
 }
 
 func newWatchNode() *watchNode {

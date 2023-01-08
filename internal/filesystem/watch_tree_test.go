@@ -13,27 +13,15 @@ var _ = Describe("WatchTree", func() {
 	BeforeEach(func() {
 		tree = filesystem.NewWatchTree()
 
-		tree.IgnoreGlob(filesystem.Glob("*_test.go"))
 		tree.WatchGlob(filesystem.Glob("*important*"))
+		tree.IgnoreGlob(filesystem.Glob("*_test.go"))
 
-		tree.Watch(filesystem.Path{
-			"users",
-		})
-		tree.Ignore(filesystem.Path{
-			"users", "max",
-		})
-		tree.Ignore(filesystem.Path{
-			"users", "john", "documents",
-		})
-		tree.Watch(filesystem.Path{
-			"users", "john", "documents", "memos",
-		})
-		tree.Ignore(filesystem.Path{
-			"users", "john", "documents", "memos", "travel", "japan",
-		})
-		tree.Ignore(filesystem.Path{
-			"users", "alice",
-		})
+		tree.Watch("/users")
+		tree.Ignore("/users/max")
+		tree.Ignore("/users/john/documents")
+		tree.Watch("/users/john/documents/memos")
+		tree.Ignore("/users/john/documents/memos/travel/japan")
+		tree.Ignore("/users/alice")
 	})
 
 	Specify("root should not be watched", func() {
@@ -65,9 +53,10 @@ var _ = Describe("WatchTree", func() {
 	})
 
 	Specify("paths can be navigated in a single step", func() {
-		Expect(tree.NavigatePath(filesystem.Path{}).ShouldWatch()).To(BeFalse())
-		Expect(tree.NavigatePath(filesystem.Path{"users", "john", "documents", "memos"}).ShouldWatch()).To(BeTrue())
-		Expect(tree.NavigatePath(filesystem.Path{"users", "john", "documents", "memos", "travel", "japan"}).ShouldWatch()).To(BeFalse())
+		Expect(tree.NavigatePath("/").ShouldWatch()).To(BeFalse())
+		Expect(tree.NavigatePath("").ShouldWatch()).To(BeFalse())
+		Expect(tree.NavigatePath("/users/john/documents/memos").ShouldWatch()).To(BeTrue())
+		Expect(tree.NavigatePath("/users/john/documents/memos/travel/japan").ShouldWatch()).To(BeFalse())
 	})
 
 	Specify("segments matching ignored globs should not be watched", func() {

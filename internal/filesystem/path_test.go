@@ -14,17 +14,17 @@ var _ = Describe("Path", func() {
 	Describe("ParsePath", func() {
 
 		It("it should handle absolute paths", func() {
-			stringPath := filepath.FromSlash("/tmp/example")
+			stringPath := filepath.FromSlash("/tmp/../tmp/example")
 			path, err := filesystem.ParsePath(stringPath)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(path).To(ConsistOf("tmp", "example"))
+			Expect(path).To(Equal(filesystem.Path("/tmp/example")))
 		})
 
 		It("it should handle relative paths", func() {
 			stringPath := filepath.FromSlash("./tmp/example")
 			path, err := filesystem.ParsePath(stringPath)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(path).To(ContainElements("tmp", "example"))
+			Expect(path).To(ContainSubstring("/tmp/example"))
 		})
 
 	})
