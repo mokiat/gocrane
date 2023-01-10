@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
 	"github.com/mokiat/gocrane/internal/filesystem"
 	"github.com/mokiat/gocrane/internal/project"
@@ -72,7 +72,7 @@ func Build(
 			}
 
 			log.Printf("Building...")
-			path := filepath.Join(tempDir, fmt.Sprintf("executable-%s", uuid.NewV4()))
+			path := filepath.Join(tempDir, fmt.Sprintf("executable-%s", uuid.NewString()))
 			if err := builder.Build(ctx, path); err != nil {
 				log.Printf("Build failure: %s", err)
 				continue
