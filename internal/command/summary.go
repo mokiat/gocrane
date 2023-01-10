@@ -1,7 +1,11 @@
 package command
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"hash"
 	"log"
+	"os"
 
 	"github.com/mokiat/gocrane/internal/project"
 
@@ -53,4 +57,29 @@ func printSummary(summary *project.Summary) {
 	for _, file := range watchedResourceFiles {
 		log.Printf("\t Resource file: %s", file)
 	}
+}
+
+func sourceDigest(summary *project.Summary) (string, error) {
+	sourceFiles := maps.Keys(summary.WatchedSourceFiles)
+	slices.Sort(sourceFiles)
+
+	dig := sha256.New()
+	for _, file := range sourceFiles {
+		if err := writeFileDigest(string(file), dig); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("%x", dig.Sum(nil)), nil
+}
+
+func writeFileDigest(file string, h hash.Hash) error {
+	stat, err := os.Stat(file)
+	if err != nil {
+		return fmt.Errorf("failed to state file %q: %w", file, err)
+	}
+	// Note: Don't include millisecond precision, as that seems to differ between
+	// host and client machine (in some cases it is not included).
+	const timeFormat = "2006/01/02 15:04:05"
+	fmt.Fprint(h, len(file), file, stat.ModTime().UTC().Format(timeFormat), stat.Size())
+	return nil
 }

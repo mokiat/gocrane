@@ -3,13 +3,14 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
 
 	"github.com/mokiat/gocrane/internal/filesystem"
-	"github.com/mokiat/gocrane/internal/location"
 )
 
 func Watch(
@@ -41,25 +42,37 @@ func Watch(
 		watchedPaths := make(map[string]struct{})
 
 		watchPath := func(root string) map[string]struct{} {
-			result := location.Traverse(root, watchFilter, func(path filesystem.AbsolutePath, isDir bool) error {
-				watchedPaths[path] = struct{}{}
-				if !isDir {
-					return location.ErrSkip
+			result := make(map[string]struct{})
+			filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+				if err != nil {
+					log.Printf("Error traversing %q: %v", p, err)
+					return filepath.SkipDir
 				}
-				if err := watcher.Add(path); err != nil {
-					return fmt.Errorf("failed to watch %q: %w", path, err)
+				absPath, err := filesystem.ToAbsolutePath(p)
+				if err != nil {
+					log.Printf("Error converting path %q to absolute: %v", p, err)
+					return filepath.SkipDir
 				}
+				if !d.IsDir() {
+					return filepath.SkipDir
+				}
+				if !watchFilter.IsAccepted(absPath) {
+					return filepath.SkipDir
+				}
+				if err := watcher.Add(absPath); err != nil {
+					log.Printf("Error adding watch to %q: %v", absPath, err)
+					return filepath.SkipDir
+				}
+				watchedPaths[absPath] = struct{}{}
+				result[absPath] = struct{}{}
 				return nil
 			})
-			for path, err := range result.ErroredPaths {
-				log.Printf("failed to watch %q: %v", path, err)
-			}
 			if verbose {
-				for path := range result.VisitedPaths {
-					log.Printf("watching %q", path)
+				for path := range result {
+					log.Printf("Watching %q", path)
 				}
 			}
-			return result.VisitedPaths
+			return result
 		}
 
 		unwatchPath := func(root string) map[string]struct{} {

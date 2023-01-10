@@ -80,40 +80,32 @@ func run(ctx context.Context, cfg runConfig) error {
 		printSummary(summary)
 	}
 
-	layout := project.Explore(
-		cfg.Dirs.Value(),
-		cfg.ExcludeDirs.Value(),
-		cfg.Sources.Value(),
-		cfg.ExcludeSources.Value(),
-		cfg.Resources.Value(),
-		cfg.ExcludeResources.Value(),
+	var (
+		fakeChangeEvent *pipeline.ChangeEvent
+		fakeBuildEvent  *pipeline.BuildEvent
 	)
-	log.Println("project successfully analyzed...")
-	if cfg.Verbose {
-		layout.PrintToLog()
-	}
-
-	var fakeChangeEvent *pipeline.ChangeEvent
-	var fakeBuildEvent *pipeline.BuildEvent
 	if cfg.BinaryFile != "" {
-		log.Println("reading stored digest...")
+		log.Println("Reading stored digest...")
 		digestFile := fmt.Sprintf("%s.dig", cfg.BinaryFile)
 		storedDigest, err := project.ReadDigest(digestFile)
 		if err != nil {
 			return fmt.Errorf("failed to read digest: %w", err)
 		}
-		log.Println("calculating digest...")
-		digest, err := layout.Digest()
+
+		log.Println("Calculating current digest...")
+		digest, err := sourceDigest(summary)
 		if err != nil {
 			return fmt.Errorf("failed to calculate digest: %w", err)
 		}
+
+		log.Println("Comparing stored and current digests...")
 		if storedDigest == digest {
-			log.Println("digest match, will use existing binary.")
+			log.Println("\t Digest match, will use existing binary.")
 			fakeBuildEvent = &pipeline.BuildEvent{
 				Path: cfg.BinaryFile,
 			}
 		} else {
-			log.Printf("digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
+			log.Printf("\t Digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
 			fakeChangeEvent = &pipeline.ChangeEvent{
 				Paths: []string{pipeline.ForceBuildPath},
 			}
@@ -135,8 +127,8 @@ func run(ctx context.Context, cfg runConfig) error {
 	group.Go(pipeline.Watch(
 		groupCtx,
 		cfg.Verbose,
-		layout.WatchDirs,
-		layout.WatchFilter,
+		rootDirs,
+		watchFilter,
 		changeEventQueue,
 		fakeChangeEvent,
 	))
@@ -159,8 +151,8 @@ func run(ctx context.Context, cfg runConfig) error {
 		cfg.BuildArgs.Value(),
 		batchChangeEventQueue,
 		buildEventQueue,
-		layout.SourceFilter,
-		layout.ResourceFilter,
+		sourceFilter,
+		resourceFilter,
 		fakeBuildEvent,
 	))
 
@@ -173,7 +165,7 @@ func run(ctx context.Context, cfg runConfig) error {
 	))
 
 	if err := group.Wait(); err != nil {
-		return fmt.Errorf("run error: %w", err)
+		return fmt.Errorf("pipeline error: %w", err)
 	}
 
 	log.Println("Pipeline stopped.")
