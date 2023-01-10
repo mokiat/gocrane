@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
+	"github.com/mokiat/gocrane/internal/filesystem"
 	"github.com/mokiat/gocrane/internal/location"
 )
 
@@ -38,7 +39,7 @@ var _ = Describe("Filter", func() {
 
 	Describe("GlobFilter", func() {
 		BeforeEach(func() {
-			filter = location.GlobFilter(location.Glob("*.go"))
+			filter = location.GlobFilter(filesystem.Glob("*.go"))
 		})
 
 		DescribeTable("Match",

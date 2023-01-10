@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+
+	"github.com/mokiat/gocrane/internal/filesystem"
 )
 
 var ErrSkip = fmt.Errorf("skipping path")
 
-type TraversalFunc func(path string, isDir bool) error
+type TraversalFunc func(path filesystem.AbsolutePath, isDir bool) error
 
 type TraversalResult struct {
 	VisitedPaths map[string]struct{}
@@ -16,7 +18,7 @@ type TraversalResult struct {
 	IgnoredPaths map[string]struct{}
 }
 
-func Traverse(root string, visitFilter Filter, fn TraversalFunc) TraversalResult {
+func Traverse(root string, watchTree *filesystem.FilterTree, fn TraversalFunc) TraversalResult {
 	result := TraversalResult{
 		VisitedPaths: make(map[string]struct{}),
 		ErroredPaths: make(map[string]error),
@@ -27,12 +29,12 @@ func Traverse(root string, visitFilter Filter, fn TraversalFunc) TraversalResult
 			result.ErroredPaths[p] = fmt.Errorf("failed to traverse path: %w", err)
 			return filepath.SkipDir
 		}
-		path, err := filepath.Abs(p)
+		path, err := filesystem.ToAbsolutePath(p)
 		if err != nil {
-			result.ErroredPaths[p] = fmt.Errorf("failed to convert path to absolute: %w", err)
+			result.ErroredPaths[p] = fmt.Errorf("failed to process path: %w", err)
 			return filepath.SkipDir
 		}
-		if !visitFilter.Match(path) {
+		if !watchTree.IsAccepted(path) {
 			result.IgnoredPaths[p] = struct{}{}
 			return filepath.SkipDir
 		}

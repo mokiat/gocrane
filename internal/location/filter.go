@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/mokiat/gocrane/internal/filesystem"
 )
 
 // Filter exposes methods for checking whether a Path matches
@@ -24,10 +26,10 @@ func (f FilterFunc) Match(path string) bool {
 // GlobFilter creates a filter based on the specified Glob. A path matches
 // this filter if any segment in it matches the Glob.
 func GlobFilter(glob string) Filter {
-	if !AppearsGlob(glob) {
+	if !filesystem.IsGlob(glob) {
 		panic(fmt.Errorf("invalid glob: %q", glob))
 	}
-	pattern := strings.TrimPrefix(glob, globPrefix)
+	pattern := filesystem.Pattern(glob)
 	return FilterFunc(func(path string) bool {
 		segments := strings.Split(path, string(filepath.Separator))
 		for _, segment := range segments {

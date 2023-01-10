@@ -11,18 +11,18 @@ import (
 
 var _ = Describe("Path", func() {
 
-	Describe("ParsePath", func() {
+	Describe("ToAbsolutePath", func() {
 
 		It("it should handle absolute paths", func() {
 			stringPath := filepath.FromSlash("/tmp/../tmp/example")
-			path, err := filesystem.ParsePath(stringPath)
+			path, err := filesystem.ToAbsolutePath(stringPath)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(path).To(Equal(filesystem.Path("/tmp/example")))
+			Expect(path).To(Equal("/tmp/example"))
 		})
 
 		It("it should handle relative paths", func() {
 			stringPath := filepath.FromSlash("./tmp/example")
-			path, err := filesystem.ParsePath(stringPath)
+			path, err := filesystem.ToAbsolutePath(stringPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(path).To(ContainSubstring("/tmp/example"))
 		})

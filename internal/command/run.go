@@ -56,7 +56,30 @@ type runConfig struct {
 }
 
 func run(ctx context.Context, cfg runConfig) error {
-	log.Println("analyzing project...")
+	log.Println("Preparing filtering...")
+	watchFilter, err := buildFilterTree(cfg.Dirs.Value(), cfg.ExcludeDirs.Value())
+	if err != nil {
+		return fmt.Errorf("problem with dir rules: %w", err)
+	}
+	sourceFilter, err := buildFilterTree(cfg.Sources.Value(), cfg.ExcludeSources.Value())
+	if err != nil {
+		return fmt.Errorf("problem with source rules: %w", err)
+	}
+	resourceFilter, err := buildFilterTree(cfg.Resources.Value(), cfg.ExcludeResources.Value())
+	if err != nil {
+		return fmt.Errorf("problem with resource rules: %w", err)
+	}
+	rootDirs := watchFilter.RootPaths()
+
+	var summary *project.Summary
+	if cfg.Verbose || cfg.BinaryFile != "" {
+		log.Println("Analyzing project...")
+		summary = project.Analyze(rootDirs, watchFilter, sourceFilter, resourceFilter)
+	}
+	if cfg.Verbose {
+		printSummary(summary)
+	}
+
 	layout := project.Explore(
 		cfg.Dirs.Value(),
 		cfg.ExcludeDirs.Value(),
@@ -101,7 +124,7 @@ func run(ctx context.Context, cfg runConfig) error {
 		}
 	}
 
-	log.Println("starting pipeline...")
+	log.Println("Running pipeline...")
 	changeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent], 1024)
 	batchChangeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent])
 	buildEventQueue := make(pipeline.Queue[pipeline.BuildEvent])
@@ -153,6 +176,6 @@ func run(ctx context.Context, cfg runConfig) error {
 		return fmt.Errorf("run error: %w", err)
 	}
 
-	log.Println("pipeline stopped.")
+	log.Println("Pipeline stopped.")
 	return nil
 }

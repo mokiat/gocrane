@@ -25,49 +25,51 @@ var _ = Describe("FilterTree", func() {
 	})
 
 	Specify("root should not be accepted", func() {
-		Expect(tree.Navigate().IsAccepted()).To(BeFalse())
+		Expect(tree.IsAccepted("")).To(BeFalse())
+		Expect(tree.IsAccepted("/")).To(BeFalse())
 	})
 
-	Specify("segments of accepted paths should be accepted", func() {
-		Expect(tree.Navigate().Navigate("users").IsAccepted()).To(BeTrue())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").IsAccepted()).To(BeTrue())
+	Specify("accepted paths should be accepted", func() {
+		Expect(tree.IsAccepted("/users")).To(BeTrue())
+		Expect(tree.IsAccepted("/users/john/documents/memos")).To(BeTrue())
 	})
 
-	Specify("segments of rejected paths should be rejected", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("max").IsAccepted()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").IsAccepted()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").IsAccepted()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("alice").IsAccepted()).To(BeFalse())
+	Specify("rejected paths should be rejected", func() {
+		Expect(tree.IsAccepted("/users/max")).To(BeFalse())
+		Expect(tree.IsAccepted("/users/john/documents")).To(BeFalse())
+		Expect(tree.IsAccepted("/users/john/documents/memos/travel/japan")).To(BeFalse())
+		Expect(tree.IsAccepted("/users/alice")).To(BeFalse())
 	})
 
-	Specify("segments after accepted path segments should be accepted", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("jane").IsAccepted()).To(BeTrue())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("work").IsAccepted()).To(BeTrue())
+	Specify("paths after accepted paths should be accepted", func() {
+		Expect(tree.IsAccepted("/users/jane")).To(BeTrue())
+		Expect(tree.IsAccepted("/users/john/documents/memos/work")).To(BeTrue())
 	})
 
-	Specify("segments after rejected path segments should be rejected", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("documents").IsAccepted()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("videos").IsAccepted()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("john").Navigate("documents").Navigate("memos").Navigate("travel").Navigate("japan").Navigate("tokyo").IsAccepted()).To(BeFalse())
-		Expect(tree.Navigate().Navigate("users").Navigate("alice").Navigate("contacts").IsAccepted()).To(BeFalse())
+	Specify("paths after rejected path segments should be rejected", func() {
+		Expect(tree.IsAccepted("/users/max/documents")).To(BeFalse())
+		Expect(tree.IsAccepted("/users/john/documents/videos")).To(BeFalse())
+		Expect(tree.IsAccepted("/users/john/documents/memos/travel/japan/tokyo")).To(BeFalse())
+		Expect(tree.IsAccepted("/users/alice/contacts")).To(BeFalse())
 	})
 
-	Specify("paths can be navigated in a single step", func() {
-		Expect(tree.NavigatePath("/").IsAccepted()).To(BeFalse())
-		Expect(tree.NavigatePath("").IsAccepted()).To(BeFalse())
-		Expect(tree.NavigatePath("/users/john/documents/memos").IsAccepted()).To(BeTrue())
-		Expect(tree.NavigatePath("/users/john/documents/memos/travel/japan").IsAccepted()).To(BeFalse())
+	Specify("paths matching rejected globs should be rejected", func() {
+		Expect(tree.IsAccepted("/users/jane/data_test.go")).To(BeFalse())
 	})
 
-	Specify("segments matching rejected globs should be rejected", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("jane").Navigate("data_test.go").IsAccepted()).To(BeFalse())
-	})
-
-	Specify("segments matching accepted globs should be accepted", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("some_important_items").IsAccepted()).To(BeTrue())
+	Specify("paths matching accepted globs should be accepted", func() {
+		Expect(tree.IsAccepted("/users/max/some_important_items")).To(BeTrue())
 	})
 
 	Specify("accepted globs supersede rejected globs", func() {
-		Expect(tree.Navigate().Navigate("users").Navigate("max").Navigate("some_important_items_test.go").IsAccepted()).To(BeTrue())
+		Expect(tree.IsAccepted("/users/max/some_important_items_test.go")).To(BeTrue())
+	})
+
+	Specify("root paths can be extracted off of filtering rules", func() {
+		paths := tree.RootPaths()
+		Expect(paths).To(ConsistOf(
+			"/users",
+			"/users/john/documents/memos",
+		))
 	})
 })

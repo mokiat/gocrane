@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
 
+	"github.com/mokiat/gocrane/internal/filesystem"
 	"github.com/mokiat/gocrane/internal/location"
 )
 
@@ -16,7 +16,7 @@ func Watch(
 	ctx context.Context,
 	verbose bool,
 	dirs []string,
-	watchFilter location.Filter,
+	watchFilter *filesystem.FilterTree,
 	out Queue[ChangeEvent],
 	bootstrapEvent *ChangeEvent,
 
@@ -41,7 +41,7 @@ func Watch(
 		watchedPaths := make(map[string]struct{})
 
 		watchPath := func(root string) map[string]struct{} {
-			result := location.Traverse(root, watchFilter, func(path string, isDir bool) error {
+			result := location.Traverse(root, watchFilter, func(path filesystem.AbsolutePath, isDir bool) error {
 				watchedPaths[path] = struct{}{}
 				if !isDir {
 					return location.ErrSkip
@@ -77,12 +77,12 @@ func Watch(
 			if verbose {
 				log.Printf("filesystem watch event: %s", event)
 			}
-			path, err := filepath.Abs(event.Name)
+			path, err := filesystem.ToAbsolutePath(event.Name)
 			if err != nil {
-				log.Printf("failed to convert path to absolute %q: %v", event.Name, err)
+				log.Printf("error processing path: %v", err)
 				return
 			}
-			if !watchFilter.Match(path) {
+			if !watchFilter.IsAccepted(path) {
 				if verbose {
 					log.Printf("skipping excluded path %q from processing", path)
 				}

@@ -4,19 +4,88 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"hash"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
 
+	"github.com/mokiat/gocrane/internal/filesystem"
 	"github.com/mokiat/gocrane/internal/location"
 )
+
+func Analyze(rootDirs []filesystem.AbsolutePath, watchFilter, sourceFilter, resourceFilter *filesystem.FilterTree) *Summary {
+	var (
+		errored = make(map[string]error)
+		omitted = make(map[string]struct{})
+		visited = make(map[string]struct{})
+
+		watchedDirs          = make(map[filesystem.AbsolutePath]struct{})
+		watchedFiles         = make(map[filesystem.AbsolutePath]struct{})
+		watchedSourceFiles   = make(map[filesystem.AbsolutePath]struct{})
+		watchedResourceFiles = make(map[filesystem.AbsolutePath]struct{})
+	)
+
+	for _, root := range rootDirs {
+		filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				errored[p] = fmt.Errorf("error traversing path: %w", err)
+				return filepath.SkipDir
+			}
+			absPath, err := filesystem.ToAbsolutePath(p)
+			if err != nil {
+				errored[p] = fmt.Errorf("error converting path to absolute: %w", err)
+				return filepath.SkipDir
+			}
+			if !watchFilter.IsAccepted(absPath) {
+				omitted[p] = struct{}{}
+				return filepath.SkipDir
+			}
+			if d.IsDir() {
+				watchedDirs[absPath] = struct{}{}
+			} else {
+				watchedFiles[absPath] = struct{}{}
+			}
+			visited[p] = struct{}{}
+			return nil
+		})
+	}
+
+	for absPath := range watchedFiles {
+		if sourceFilter.IsAccepted(absPath) {
+			watchedSourceFiles[absPath] = struct{}{}
+		}
+		if resourceFilter.IsAccepted(absPath) {
+			watchedResourceFiles[absPath] = struct{}{}
+		}
+	}
+
+	return &Summary{
+		Errored: errored,
+		Omitted: omitted,
+		Visited: visited,
+
+		WatchedDirs:          watchedDirs,
+		WatchedSourceFiles:   watchedSourceFiles,
+		WatchedResourceFiles: watchedResourceFiles,
+	}
+}
+
+type Summary struct {
+	Errored map[string]error
+	Omitted map[string]struct{}
+	Visited map[string]struct{}
+
+	WatchedDirs          map[filesystem.AbsolutePath]struct{}
+	WatchedSourceFiles   map[filesystem.AbsolutePath]struct{}
+	WatchedResourceFiles map[filesystem.AbsolutePath]struct{}
+}
 
 type Layout struct {
 	Errored        map[string]error
 	Ignored        map[string]struct{}
 	WatchDirs      []string
-	WatchFilter    location.Filter
+	WatchFilter    *filesystem.FilterTree
 	SourceFiles    []string
 	SourceFilter   location.Filter
 	ResourceFilter location.Filter
@@ -58,9 +127,35 @@ func Explore(dirs, dirExcludes, sources, sourceExludes, resources, resourceExclu
 	errored := make(map[string]error)
 	omitted := make(map[string]struct{})
 
-	watchFilter := location.NotFilter(
-		buildFilter(dirExcludes, errored),
-	)
+	watchFilter := filesystem.NewFilterTree()
+	for _, dir := range dirs {
+		if filesystem.IsGlob(dir) {
+			watchFilter.AcceptGlob(dir)
+		} else {
+			path, err := filesystem.ToAbsolutePath(dir)
+			if err != nil {
+				errored[path] = fmt.Errorf("failed to convert path to absolute: %w", err)
+				continue
+			}
+			watchFilter.AcceptPath(path)
+		}
+	}
+	for _, dir := range dirExcludes {
+		if filesystem.IsGlob(dir) {
+			watchFilter.RejectGlob(dir)
+		} else {
+			path, err := filesystem.ToAbsolutePath(dir)
+			if err != nil {
+				errored[path] = fmt.Errorf("failed to convert path to absolute: %w", err)
+				continue
+			}
+			watchFilter.RejectPath(path)
+		}
+	}
+
+	// watchFilter := location.NotFilter(
+	// 	buildFilter(dirExcludes, errored),
+	// )
 	sourcesFilter := location.AndFilter(
 		buildFilter(sources, errored),
 		location.NotFilter(
@@ -77,7 +172,7 @@ func Explore(dirs, dirExcludes, sources, sourceExludes, resources, resourceExclu
 	uniqueDirs := make(map[string]struct{})
 	uniqueFiles := make(map[string]struct{})
 	for _, dir := range dirs {
-		result := location.Traverse(dir, watchFilter, func(path string, isDir bool) error {
+		result := location.Traverse(dir, watchFilter, func(path filesystem.AbsolutePath, isDir bool) error {
 			if isDir {
 				uniqueDirs[path] = struct{}{}
 			} else {
@@ -121,7 +216,7 @@ func Explore(dirs, dirExcludes, sources, sourceExludes, resources, resourceExclu
 func buildFilter(targets []string, errored map[string]error) location.Filter {
 	var filters []location.Filter
 	for _, target := range targets {
-		if location.AppearsGlob(target) {
+		if filesystem.IsGlob(target) {
 			filters = append(filters, location.GlobFilter(target))
 		} else {
 			path, err := filepath.Abs(target)
