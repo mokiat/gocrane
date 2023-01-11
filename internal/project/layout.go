@@ -2,8 +2,6 @@ package project
 
 import (
 	"fmt"
-	"io/fs"
-	"path/filepath"
 
 	"github.com/mokiat/gocrane/internal/filesystem"
 )
@@ -25,21 +23,21 @@ func Analyze(rootDirs []filesystem.AbsolutePath, watchFilter, sourceFilter, reso
 	)
 
 	for _, root := range rootDirs {
-		filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		filesystem.Traverse(root, func(p string, isDir bool, err error) error {
 			if err != nil {
 				errored[p] = fmt.Errorf("error traversing path: %w", err)
-				return filepath.SkipDir
+				return filesystem.ErrSkip
 			}
 			absPath, err := filesystem.ToAbsolutePath(p)
 			if err != nil {
 				errored[p] = fmt.Errorf("error converting path to absolute: %w", err)
-				return filepath.SkipDir
+				return filesystem.ErrSkip
 			}
 			if !watchFilter.IsAccepted(absPath) {
 				omitted[p] = struct{}{}
-				return filepath.SkipDir
+				return filesystem.ErrSkip
 			}
-			if d.IsDir() {
+			if isDir {
 				watchedDirs[absPath] = struct{}{}
 			} else {
 				watchedFiles[absPath] = struct{}{}
