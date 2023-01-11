@@ -3,9 +3,10 @@ package pipeline_test
 import (
 	"context"
 
-	"github.com/mokiat/gocrane/internal/pipeline"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/mokiat/gocrane/internal/pipeline"
 )
 
 var _ = Describe("Event", func() {
