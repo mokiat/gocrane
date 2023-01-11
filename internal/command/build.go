@@ -78,7 +78,7 @@ func build(ctx context.Context, cfg buildConfig) error {
 	}
 
 	log.Println("Calculating current digest...")
-	digest, err := sourceDigest(summary)
+	digest, err := calculateDigest(summary)
 	if err != nil {
 		return fmt.Errorf("failed to calculate digest: %w", err)
 	}
@@ -86,7 +86,7 @@ func build(ctx context.Context, cfg buildConfig) error {
 
 	log.Println("Persisting digest...")
 	digestFile := fmt.Sprintf("%s.dig", cfg.BinaryFile)
-	if err := project.WriteDigest(digestFile, digest); err != nil {
+	if err := project.SaveDigestFile(digestFile, digest); err != nil {
 		return fmt.Errorf("failed to write digest: %w", err)
 	}
 	log.Println("Digest successfully persisted.")

@@ -8,6 +8,10 @@ import (
 	"github.com/mokiat/gocrane/internal/filesystem"
 )
 
+// Analyze traverses the folders specified by rootDirs and evaluates which
+// files and folders would be watched based on the specified filters.
+//
+// The outcome of the analysis is returned as a Summary.
 func Analyze(rootDirs []filesystem.AbsolutePath, watchFilter, sourceFilter, resourceFilter *filesystem.FilterTree) *Summary {
 	var (
 		errored = make(map[string]error)
@@ -65,6 +69,7 @@ func Analyze(rootDirs []filesystem.AbsolutePath, watchFilter, sourceFilter, reso
 	}
 }
 
+// Summary is the outcome of a project analysis.
 type Summary struct {
 	Errored map[string]error
 	Omitted map[string]struct{}

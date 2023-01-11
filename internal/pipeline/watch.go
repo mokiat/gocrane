@@ -88,16 +88,16 @@ func Watch(
 
 		processFSEvent := func(event fsnotify.Event) {
 			if verbose {
-				log.Printf("filesystem watch event: %s", event)
+				log.Printf("Filesystem watch event: %s", event)
 			}
 			path, err := filesystem.ToAbsolutePath(event.Name)
 			if err != nil {
-				log.Printf("error processing path: %v", err)
+				log.Printf("Error processing path: %v", err)
 				return
 			}
 			if !watchFilter.IsAccepted(path) {
 				if verbose {
-					log.Printf("skipping excluded path %q from processing", path)
+					log.Printf("Skipping excluded path %q from processing", path)
 				}
 				return
 			}
@@ -140,7 +140,7 @@ func Watch(
 			case event := <-watcher.Events:
 				processFSEvent(event)
 			case err := <-watcher.Errors:
-				log.Printf("filesystem watcher error: %v", err)
+				log.Printf("Filesystem watcher error: %v", err)
 			}
 		}
 	}

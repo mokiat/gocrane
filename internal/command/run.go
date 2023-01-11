@@ -87,13 +87,13 @@ func run(ctx context.Context, cfg runConfig) error {
 	if cfg.BinaryFile != "" {
 		log.Println("Reading stored digest...")
 		digestFile := fmt.Sprintf("%s.dig", cfg.BinaryFile)
-		storedDigest, err := project.ReadDigest(digestFile)
+		storedDigest, err := project.OpenDigestFile(digestFile)
 		if err != nil {
 			return fmt.Errorf("failed to read digest: %w", err)
 		}
 
 		log.Println("Calculating current digest...")
-		digest, err := sourceDigest(summary)
+		digest, err := calculateDigest(summary)
 		if err != nil {
 			return fmt.Errorf("failed to calculate digest: %w", err)
 		}
