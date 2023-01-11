@@ -15,11 +15,11 @@ jobs:
         with:
           go-version: 1.19
 
-      - name: Build
-        run: go build -o gocrane .
-
-      - name: Get Ginkgo
-        run: go install github.com/onsi/ginkgo/ginkgo@latest
+      - name: Download Dependencies
+        run: go mod download
 
       - name: Run Tests
-        run: ginkgo -r --race --randomizeAllSpecs --randomizeSuites
+        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --race --randomize-all --randomize-suites
+
+      - name: Build
+        run: go build -o gocrane .
