@@ -14,15 +14,25 @@ func Batch(
 
 	return func() error {
 		var (
+			flushTimer                    = time.NewTimer(batchDuration)
 			flushChan  chan<- ChangeEvent = nil
-			timerChan  <-chan time.Time   = nil
 			batchEvent ChangeEvent
 		)
+
+		stopTimer := func() {
+			if !flushTimer.Stop() {
+				select {
+				case <-flushTimer.C:
+				default:
+				}
+			}
+		}
 
 		for {
 			select {
 			// Check if we should exit.
 			case <-ctx.Done():
+				stopTimer()
 				return nil
 
 			// Check if we are able to flush. If we cannot push the batched event,
@@ -34,15 +44,14 @@ func Batch(
 
 			// A sufficient amount of time has passed since the first event was received
 			// so we can enable flushing.
-			case <-timerChan:
-				timerChan = nil
+			case <-flushTimer.C:
 				flushChan = out // Allow flushing.
 
 			// Try to read new events and accumulate them.
 			case event := <-in:
-				// Start or extend flush timer on event received.
-				timerChan = time.After(batchDuration)
 				batchEvent.Paths = append(batchEvent.Paths, event.Paths...)
+				stopTimer()
+				flushTimer.Reset(batchDuration)
 			}
 		}
 	}
