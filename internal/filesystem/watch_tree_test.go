@@ -61,8 +61,8 @@ var _ = Describe("FilterTree", func() {
 		Expect(tree.IsAccepted("/users/max/some_important_items")).To(BeTrue())
 	})
 
-	Specify("accepted globs supersede rejected globs", func() {
-		Expect(tree.IsAccepted("/users/max/some_important_items_test.go")).To(BeTrue())
+	Specify("rejected globs supersede accepted globs", func() {
+		Expect(tree.IsAccepted("/users/max/some_important_items_test.go")).To(BeFalse())
 	})
 
 	Specify("root paths can be extracted off of filtering rules", func() {

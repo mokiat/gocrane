@@ -137,11 +137,11 @@ func (t *FilterTree) navigateAway(current *filterTreeNode, isCurrentAccepted boo
 		}
 	}
 	// check pattern rules
-	if t.isSegmentPatternRejected(childName) {
-		childIsAccepted = false
-	}
 	if t.isSegmentPatternAccepted(childName) {
 		childIsAccepted = true
+	}
+	if t.isSegmentPatternRejected(childName) {
+		childIsAccepted = false
 	}
 	return childNode, childIsAccepted
 }
