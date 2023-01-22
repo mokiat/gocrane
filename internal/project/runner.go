@@ -46,10 +46,11 @@ type Process struct {
 func (p *Process) Stop(ctx context.Context) error {
 	stopped := make(chan struct{})
 	defer close(stopped)
+
 	go func() {
 		select {
 		case <-ctx.Done():
-			log.Println("killing program forcefully as it failed to shutdown gracefully")
+			log.Println("Killing program, as it failed to shutdown gracefully...")
 			p.kill()
 		case <-stopped:
 		}
@@ -63,7 +64,7 @@ func (p *Process) Stop(ctx context.Context) error {
 		return fmt.Errorf("failed to wait for program to stop: %w", err)
 	}
 	if !state.Success() {
-		log.Printf("warning: program exited with non-zero exit code: %d", state.ExitCode())
+		log.Printf("Program exited with non-zero exit code: %d", state.ExitCode())
 	}
 	return nil
 }

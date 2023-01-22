@@ -1,4 +1,4 @@
-package logutil_test
+package filesystem_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestLogutil(t *testing.T) {
+func TestLocation(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Log Util Suite")
+	RunSpecs(t, "Filesystem Suite")
 }

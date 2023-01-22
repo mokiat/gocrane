@@ -56,41 +56,56 @@ type runConfig struct {
 }
 
 func run(ctx context.Context, cfg runConfig) error {
-	log.Println("analyzing project...")
-	layout := project.Explore(
-		cfg.Dirs.Value(),
-		cfg.ExcludeDirs.Value(),
-		cfg.Sources.Value(),
-		cfg.ExcludeSources.Value(),
-		cfg.Resources.Value(),
-		cfg.ExcludeResources.Value(),
-	)
-	log.Println("project successfully analyzed...")
+	log.Println("Preparing filtering...")
+	watchFilter, err := buildFilterTree(cfg.Dirs.Value(), cfg.ExcludeDirs.Value())
+	if err != nil {
+		return fmt.Errorf("problem with dir rules: %w", err)
+	}
+	sourceFilter, err := buildFilterTree(cfg.Sources.Value(), cfg.ExcludeSources.Value())
+	if err != nil {
+		return fmt.Errorf("problem with source rules: %w", err)
+	}
+	resourceFilter, err := buildFilterTree(cfg.Resources.Value(), cfg.ExcludeResources.Value())
+	if err != nil {
+		return fmt.Errorf("problem with resource rules: %w", err)
+	}
+	rootDirs := watchFilter.RootPaths()
+
+	var summary *project.Summary
+	if cfg.Verbose || cfg.BinaryFile != "" {
+		log.Println("Analyzing project...")
+		summary = project.Analyze(rootDirs, watchFilter, sourceFilter, resourceFilter)
+	}
 	if cfg.Verbose {
-		layout.PrintToLog()
+		printSummary(summary)
 	}
 
-	var fakeChangeEvent *pipeline.ChangeEvent
-	var fakeBuildEvent *pipeline.BuildEvent
+	var (
+		fakeChangeEvent *pipeline.ChangeEvent
+		fakeBuildEvent  *pipeline.BuildEvent
+	)
 	if cfg.BinaryFile != "" {
-		log.Println("reading stored digest...")
+		log.Println("Reading stored digest...")
 		digestFile := fmt.Sprintf("%s.dig", cfg.BinaryFile)
-		storedDigest, err := project.ReadDigest(digestFile)
+		storedDigest, err := project.OpenDigestFile(digestFile)
 		if err != nil {
 			return fmt.Errorf("failed to read digest: %w", err)
 		}
-		log.Println("calculating digest...")
-		digest, err := layout.Digest()
+
+		log.Println("Calculating current digest...")
+		digest, err := calculateDigest(summary)
 		if err != nil {
 			return fmt.Errorf("failed to calculate digest: %w", err)
 		}
+
+		log.Println("Comparing stored and current digests...")
 		if storedDigest == digest {
-			log.Println("digest match, will use existing binary.")
+			log.Println("\t Digest match, will use existing binary.")
 			fakeBuildEvent = &pipeline.BuildEvent{
 				Path: cfg.BinaryFile,
 			}
 		} else {
-			log.Printf("digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
+			log.Printf("\t Digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
 			fakeChangeEvent = &pipeline.ChangeEvent{
 				Paths: []string{pipeline.ForceBuildPath},
 			}
@@ -101,7 +116,7 @@ func run(ctx context.Context, cfg runConfig) error {
 		}
 	}
 
-	log.Println("starting pipeline...")
+	log.Println("Running pipeline...")
 	changeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent], 1024)
 	batchChangeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent])
 	buildEventQueue := make(pipeline.Queue[pipeline.BuildEvent])
@@ -112,8 +127,8 @@ func run(ctx context.Context, cfg runConfig) error {
 	group.Go(pipeline.Watch(
 		groupCtx,
 		cfg.Verbose,
-		layout.WatchDirs,
-		layout.WatchFilter,
+		rootDirs,
+		watchFilter,
 		changeEventQueue,
 		fakeChangeEvent,
 	))
@@ -136,8 +151,8 @@ func run(ctx context.Context, cfg runConfig) error {
 		cfg.BuildArgs.Value(),
 		batchChangeEventQueue,
 		buildEventQueue,
-		layout.SourceFilter,
-		layout.ResourceFilter,
+		sourceFilter,
+		resourceFilter,
 		fakeBuildEvent,
 	))
 
@@ -150,9 +165,9 @@ func run(ctx context.Context, cfg runConfig) error {
 	))
 
 	if err := group.Wait(); err != nil {
-		return fmt.Errorf("run error: %w", err)
+		return fmt.Errorf("pipeline error: %w", err)
 	}
 
-	log.Println("pipeline stopped.")
+	log.Println("Pipeline stopped.")
 	return nil
 }

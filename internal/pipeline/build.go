@@ -7,13 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 
-	"github.com/mokiat/gocrane/internal/location"
+	"github.com/mokiat/gocrane/internal/filesystem"
 	"github.com/mokiat/gocrane/internal/project"
 )
 
-const ForceBuildPath = "/gocrane/fake/forced/build"
+const ForceBuildPath = "/ffb5c0d8-e6ac-4965-9080-7168f473db57"
 
 func Build(
 	ctx context.Context,
@@ -21,8 +21,8 @@ func Build(
 	buildArgs []string,
 	in Queue[ChangeEvent],
 	out Queue[BuildEvent],
-	rebuildFilter location.Filter,
-	restartFilter location.Filter,
+	rebuildFilter *filesystem.FilterTree,
+	restartFilter *filesystem.FilterTree,
 	bootstrapEvent *BuildEvent,
 ) func() error {
 
@@ -38,7 +38,6 @@ func Build(
 	}()
 
 	builder := project.NewBuilder(mainDir, buildArgs)
-	forceBuildFilter := location.PathFilter(ForceBuildPath)
 
 	return func() error {
 		var lastBinary string
@@ -49,9 +48,8 @@ func Build(
 
 		var changeEvent ChangeEvent
 		for in.Pop(ctx, &changeEvent) {
-			shouldBuild := location.MatchAny(rebuildFilter, changeEvent.Paths) ||
-				location.MatchAny(forceBuildFilter, changeEvent.Paths)
-			shouldRestart := location.MatchAny(restartFilter, changeEvent.Paths)
+			shouldBuild := isAnyAccepted(rebuildFilter, changeEvent.Paths) || isAnyForceRebuild(changeEvent.Paths)
+			shouldRestart := isAnyAccepted(restartFilter, changeEvent.Paths)
 
 			// Skip this change event. The changed files are not of relevance.
 			if !shouldBuild && !shouldRestart {
@@ -73,14 +71,14 @@ func Build(
 				continue
 			}
 
-			log.Printf("building...")
-			path := filepath.Join(tempDir, fmt.Sprintf("executable-%s", uuid.NewV4()))
+			log.Printf("Building...")
+			path := filepath.Join(tempDir, fmt.Sprintf("executable-%s", uuid.NewString()))
 			if err := builder.Build(ctx, path); err != nil {
-				log.Printf("build failure: %s", err)
+				log.Printf("Build failure: %s", err)
 				continue
 			}
 
-			log.Printf("build was successful.")
+			log.Printf("Build was successful.")
 			lastBinary = path
 			out.Push(ctx, BuildEvent{
 				Path: path,
@@ -89,4 +87,22 @@ func Build(
 
 		return nil
 	}
+}
+
+func isAnyAccepted(filter *filesystem.FilterTree, paths []string) bool {
+	for _, path := range paths {
+		if filter.IsAccepted(path) {
+			return true
+		}
+	}
+	return false
+}
+
+func isAnyForceRebuild(paths []string) bool {
+	for _, path := range paths {
+		if path == ForceBuildPath {
+			return true
+		}
+	}
+	return false
 }

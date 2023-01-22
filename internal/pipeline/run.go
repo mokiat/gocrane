@@ -25,12 +25,12 @@ func Run(
 			if runningProcess != nil {
 				return fmt.Errorf("there is already a running process")
 			}
-			log.Printf("starting new process...")
+			log.Printf("Starting new process...")
 			process, err := runner.Run(context.Background(), path)
 			if err != nil {
 				return fmt.Errorf("failed to start process: %w", err)
 			}
-			log.Printf("successfully started new process.")
+			log.Printf("Successfully started new process.")
 			runningProcess = process
 			return nil
 		}
@@ -39,13 +39,13 @@ func Run(
 			if runningProcess == nil {
 				return nil
 			}
-			log.Printf("stopping running process (timeout: %s)...", shutdownTimeout)
+			log.Printf("Stopping running process (timeout: %s)...", shutdownTimeout)
 			shutdownCtx, shutdownFunc := context.WithTimeout(context.Background(), shutdownTimeout)
 			defer shutdownFunc()
 			if err := runningProcess.Stop(shutdownCtx); err != nil {
 				return fmt.Errorf("failed to stop process: %w", err)
 			}
-			log.Printf("successfully stopped running process.")
+			log.Printf("Successfully stopped running process.")
 			runningProcess = nil
 			return nil
 		}

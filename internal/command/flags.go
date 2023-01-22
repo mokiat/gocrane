@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/mokiat/gocrane/internal/command/flag"
-	"github.com/mokiat/gocrane/internal/location"
+	"github.com/mokiat/gocrane/internal/filesystem"
 )
 
 func newVerboseFlag(target *bool) cli.Flag {
@@ -40,10 +40,10 @@ func newDirExcludeFlag(target *cli.StringSlice) cli.Flag {
 		Aliases: []string{"de"},
 		EnvVars: []string{"GOCRANE_DIR_EXCLUDES"},
 		Value: cli.NewStringSlice(
-			location.Glob(".git"),
-			location.Glob(".github"),
-			location.Glob(".gitlab"),
-			location.Glob(".vscode"),
+			filesystem.Glob(".git"),
+			filesystem.Glob(".github"),
+			filesystem.Glob(".gitlab"),
+			filesystem.Glob(".vscode"),
 		),
 		Destination: target,
 	}
@@ -56,9 +56,9 @@ func newSourceFlag(target *cli.StringSlice) cli.Flag {
 		Aliases: []string{"s"},
 		EnvVars: []string{"GOCRANE_SOURCES"},
 		Value: cli.NewStringSlice(
-			location.Glob("*.go"),
-			location.Glob("go.mod"),
-			location.Glob("go.sum"),
+			filesystem.Glob("*.go"),
+			filesystem.Glob("go.mod"),
+			filesystem.Glob("go.sum"),
 		),
 		Destination: target,
 	}
@@ -71,7 +71,7 @@ func newSourceExcludeFlag(target *cli.StringSlice) cli.Flag {
 		Aliases: []string{"se"},
 		EnvVars: []string{"GOCRANE_SOURCE_EXCLUDES"},
 		Value: cli.NewStringSlice(
-			location.Glob("*_test.go"),
+			filesystem.Glob("*_test.go"),
 		),
 		Destination: target,
 	}
@@ -95,13 +95,13 @@ func newResourceExcludeFlag(target *cli.StringSlice) cli.Flag {
 		Aliases: []string{"re"},
 		EnvVars: []string{"GOCRANE_RESOURCE_EXCLUDES"},
 		Value: cli.NewStringSlice(
-			location.Glob(".gitignore"),
-			location.Glob(".gitattributes"),
-			location.Glob(".DS_Store"),
-			location.Glob("README.md"),
-			location.Glob("LICENSE"),
-			location.Glob("Dockerfile"),
-			location.Glob("docker-compose.yml"),
+			filesystem.Glob(".gitignore"),
+			filesystem.Glob(".gitattributes"),
+			filesystem.Glob(".DS_Store"),
+			filesystem.Glob("README.md"),
+			filesystem.Glob("LICENSE"),
+			filesystem.Glob("Dockerfile"),
+			filesystem.Glob("docker-compose.yml"),
 		),
 		Destination: target,
 	}

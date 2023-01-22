@@ -2,21 +2,21 @@ package pipeline
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/mokiat/gocrane/internal/location"
+	"github.com/mokiat/gocrane/internal/filesystem"
 )
 
 func Watch(
 	ctx context.Context,
 	verbose bool,
 	dirs []string,
-	watchFilter location.Filter,
+	watchFilter *filesystem.FilterTree,
 	out Queue[ChangeEvent],
 	bootstrapEvent *ChangeEvent,
 
@@ -41,25 +41,40 @@ func Watch(
 		watchedPaths := make(map[string]struct{})
 
 		watchPath := func(root string) map[string]struct{} {
-			result := location.Traverse(root, watchFilter, func(path string, isDir bool) error {
-				watchedPaths[path] = struct{}{}
-				if !isDir {
-					return location.ErrSkip
+			result := make(map[string]struct{})
+
+			filesystem.Traverse(root, func(p string, isDir bool, err error) error {
+				if err != nil {
+					log.Printf("Error traversing %q: %v", p, err)
+					return filesystem.ErrSkip
 				}
-				if err := watcher.Add(path); err != nil {
-					return fmt.Errorf("failed to watch %q: %w", path, err)
+				absPath, err := filesystem.ToAbsolutePath(p)
+				if err != nil {
+					log.Printf("Error converting path %q to absolute: %v", p, err)
+					return filesystem.ErrSkip
 				}
+				if _, ok := watchedPaths[absPath]; ok {
+					return filesystem.ErrSkip
+				}
+				if !watchFilter.IsAccepted(absPath) {
+					return filesystem.ErrSkip
+				}
+				if isDir {
+					if err := watcher.Add(absPath); err != nil {
+						log.Printf("Error adding watch to %q: %v", absPath, err)
+						return filesystem.ErrSkip
+					}
+				}
+				watchedPaths[absPath] = struct{}{}
+				result[absPath] = struct{}{}
 				return nil
 			})
-			for path, err := range result.ErroredPaths {
-				log.Printf("failed to watch %q: %v", path, err)
-			}
 			if verbose {
-				for path := range result.VisitedPaths {
-					log.Printf("watching %q", path)
+				for path := range result {
+					log.Printf("Watching %q", path)
 				}
 			}
-			return result.VisitedPaths
+			return result
 		}
 
 		unwatchPath := func(root string) map[string]struct{} {
@@ -67,7 +82,28 @@ func Watch(
 			for p := range watchedPaths {
 				if strings.HasPrefix(p, root) {
 					result[p] = struct{}{}
-					delete(watchedPaths, p)
+					// NOTE: Regardless what the documentation says, we NEED to
+					// try and explicitly Remove the watch as otherwise there are some
+					// race condition bugs.
+					//
+					// Example on Linux:
+					// 1. Create folder ./foo
+					// 2. Create file ./foo/bar
+					// 3. Delete folder ./foo
+					// 4. Create folder ./foo
+					// 5. Create file ./foo/bar
+					// The file `bar` is indicated as being located at `/bar`
+					// by the watcher. This bug does not appear of we remove the
+					// watch explicitly.
+					err := watcher.Remove(p)
+					if err == nil || errors.Is(err, fsnotify.ErrNonExistentWatch) {
+						delete(watchedPaths, p)
+						if verbose {
+							log.Printf("Unwatched %q", p)
+						}
+					} else {
+						log.Printf("Error removing watch from %q: %v", p, err)
+					}
 				}
 			}
 			return result
@@ -75,32 +111,47 @@ func Watch(
 
 		processFSEvent := func(event fsnotify.Event) {
 			if verbose {
-				log.Printf("filesystem watch event: %s", event)
+				log.Printf("Filesystem watch event: %s", event)
 			}
-			path, err := filepath.Abs(event.Name)
+			absPath, err := filesystem.ToAbsolutePath(event.Name)
 			if err != nil {
-				log.Printf("failed to convert path to absolute %q: %v", event.Name, err)
+				log.Printf("Error processing path: %v", err)
 				return
 			}
-			if !watchFilter.Match(path) {
+			if !watchFilter.IsAccepted(absPath) {
 				if verbose {
-					log.Printf("skipping excluded path %q from processing", path)
+					log.Printf("Skipping excluded path %q from processing", absPath)
 				}
 				return
 			}
 
 			switch {
 			case isEventType(event, fsnotify.Create):
-				paths := watchPath(path)
-				event := ChangeEvent{}
+				paths := watchPath(absPath)
+				event := ChangeEvent{
+					Paths: make([]string, 0, len(paths)),
+				}
+				for path := range paths {
+					event.Paths = append(event.Paths, path)
+				}
+				out.Push(ctx, event)
+
+			case isEventType(event, fsnotify.Rename):
+				// Rename is produced on Linux when a file is deleted.
+				paths := unwatchPath(absPath)
+				event := ChangeEvent{
+					Paths: make([]string, 0, len(paths)),
+				}
 				for path := range paths {
 					event.Paths = append(event.Paths, path)
 				}
 				out.Push(ctx, event)
 
 			case isEventType(event, fsnotify.Remove):
-				paths := unwatchPath(path)
-				event := ChangeEvent{}
+				paths := unwatchPath(absPath)
+				event := ChangeEvent{
+					Paths: make([]string, 0, len(paths)),
+				}
 				for path := range paths {
 					event.Paths = append(event.Paths, path)
 				}
@@ -111,7 +162,7 @@ func Watch(
 
 			default:
 				out.Push(ctx, ChangeEvent{
-					Paths: []string{path},
+					Paths: []string{absPath},
 				})
 			}
 		}
@@ -127,7 +178,7 @@ func Watch(
 			case event := <-watcher.Events:
 				processFSEvent(event)
 			case err := <-watcher.Errors:
-				log.Printf("filesystem watcher error: %v", err)
+				log.Printf("Filesystem watcher error: %v", err)
 			}
 		}
 	}

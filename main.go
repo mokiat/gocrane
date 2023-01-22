@@ -26,17 +26,9 @@ func main() {
 		},
 	}
 
-	appCtx, appStop := context.WithCancel(context.Background())
+	appCtx, appStop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer appStop()
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		defer signal.Stop(sigChan)
-		<-sigChan
-		appStop()
-	}()
-
 	if err := app.RunContext(appCtx, os.Args); err != nil {
-		log.Fatalf("crashed: %s", err)
+		log.Fatalf("Crashed: %v", err)
 	}
 }
