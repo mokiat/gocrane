@@ -1,7 +1,7 @@
 # GoCrane
 
-![master status badge](https://github.com/mokiat/gocrane/workflows/Master/badge.svg)
-![release status badge](https://github.com/mokiat/gocrane/workflows/Release/badge.svg)
+![master status badge](https://github.com/mokiat/gocrane/actions/workflows/master.yml/badge.svg?event=push)
+![release status badge](https://github.com/mokiat/gocrane/actions/workflows/release.yml/badge.svg?event=push)
 
 GoCrane is a tool to help run and automatically rebuild applications in a `Docker` environment.
 
