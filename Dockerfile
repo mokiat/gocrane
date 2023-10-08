@@ -1,4 +1,4 @@
-FROM golang:1.19 as builder
+FROM golang:1.21 as builder
 COPY ./ /src/project
 WORKDIR /src/project
 RUN CGO_ENABLED=0 go build -o '/bin/gocrane' './'
