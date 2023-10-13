@@ -17,6 +17,7 @@ func NewFilterTree() *FilterTree {
 // FilterTree is a data structure that can be used to mark specific filesystem
 // paths as accepted and others as rejected. This can also be achieved through
 // global glob patterns.
+//
 // The structure then provides a means through which one can test whether
 // a given file path is accepted or rejected by the filter.
 type FilterTree struct {
