@@ -1,8 +1,6 @@
 module github.com/mokiat/gocrane
 
-go 1.21
-
-toolchain go1.21.1
+go 1.22
 
 require (
 	github.com/fsnotify/fsnotify v1.6.0
