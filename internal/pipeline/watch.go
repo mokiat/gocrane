@@ -38,7 +38,6 @@ func Watch(
 
 		proc := &watchProcess{
 			verbose:      verbose,
-			rootDirs:     dirs,
 			watcher:      watcher,
 			watchFilter:  watchFilter,
 			trackedPaths: ds.NewSet[string](1024),
@@ -69,7 +68,6 @@ func Watch(
 
 type watchProcess struct {
 	verbose     bool
-	rootDirs    []string
 	watcher     *fsnotify.Watcher
 	watchFilter *filesystem.FilterTree
 
@@ -111,10 +109,6 @@ func (proc *watchProcess) handleEvent(event fsnotify.Event) *ds.Set[string] {
 }
 
 func (proc *watchProcess) startWatching(root string) *ds.Set[string] {
-	if !proc.isSanePath(root) {
-		return nil
-	}
-
 	result := ds.NewSet[string](1)
 
 	filesystem.Traverse(root, func(p string, isDir bool, err error) error {
@@ -156,10 +150,6 @@ func (proc *watchProcess) startWatching(root string) *ds.Set[string] {
 }
 
 func (proc *watchProcess) stopWatching(root string) *ds.Set[string] {
-	if !proc.isSanePath(root) {
-		return nil
-	}
-
 	result := ds.NewSet[string](1)
 
 	for p := range proc.trackedPaths.Unbox() {
@@ -194,18 +184,6 @@ func (proc *watchProcess) untrackPath(path string) {
 
 func (proc *watchProcess) isTracked(path string) bool {
 	return proc.trackedPaths.Contains(path)
-}
-
-// isSanePath returns whether the path appears to be legit, since fsnotify
-// has issues on some platforms where after a Remove it starts emitting
-// empty paths or ones relative to root.
-func (proc *watchProcess) isSanePath(path string) bool {
-	for _, root := range proc.rootDirs {
-		if strings.HasPrefix(path, root) {
-			return true
-		}
-	}
-	return false
 }
 
 func (proc *watchProcess) logFSWatchEvent(event fsnotify.Event) {
