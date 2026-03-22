@@ -17,7 +17,7 @@ func OpenDigestFile(path string) (string, error) {
 
 // SaveDigestFile stores the specified digest into the specified file.
 func SaveDigestFile(path, digest string) error {
-	if err := os.WriteFile(path, []byte(digest), 0x644); err != nil {
+	if err := os.WriteFile(path, []byte(digest), 0o644); err != nil {
 		return fmt.Errorf("failed to write file %q: %w", path, err)
 	}
 	return nil
