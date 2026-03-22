@@ -70,11 +70,8 @@ func build(ctx context.Context, cfg buildConfig) error {
 	}
 	rootDirs := watchFilter.RootPaths()
 
-	var summary *project.Summary
-	if cfg.Verbose || cfg.BinaryFile != "" {
-		log.Println("Analyzing project...")
-		summary = project.Analyze(rootDirs, watchFilter, sourceFilter, resourceFilter)
-	}
+	log.Println("Analyzing project...")
+	summary := project.Analyze(rootDirs, watchFilter, sourceFilter, resourceFilter)
 	if cfg.Verbose {
 		printSummary(summary)
 	}
