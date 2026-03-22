@@ -15,13 +15,13 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: "1.26"
 
       - name: Download Dependencies
         run: go mod download
 
       - name: Run Tests
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --race --randomize-all --randomize-suites
+        run: go tool ginkgo -r --race --randomize-all --randomize-suites
 
       - name: Build
         run: go build -o gocrane .
