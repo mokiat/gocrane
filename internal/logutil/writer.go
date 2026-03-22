@@ -18,11 +18,9 @@ type writerLogger struct {
 }
 
 func (l writerLogger) Write(data []byte) (int, error) {
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		if line != "" {
-			l.logger.Println(line)
-		}
+	text := strings.TrimSpace(string(data))
+	for line := range strings.SplitSeq(text, "\n") {
+		l.logger.Println(line)
 	}
 	return len(data), nil
 }

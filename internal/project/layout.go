@@ -33,6 +33,10 @@ func Analyze(rootDirs []filesystem.AbsolutePath, watchFilter, sourceFilter, reso
 				errored[p] = fmt.Errorf("error converting path to absolute: %w", err)
 				return filesystem.ErrSkip
 			}
+			if _, alreadyVisited := visited[p]; alreadyVisited {
+				return filesystem.ErrSkip
+			}
+			visited[p] = struct{}{}
 			if !watchFilter.IsAccepted(absPath) {
 				omitted[p] = struct{}{}
 				return filesystem.ErrSkip
@@ -42,16 +46,15 @@ func Analyze(rootDirs []filesystem.AbsolutePath, watchFilter, sourceFilter, reso
 			} else {
 				watchedFiles[absPath] = struct{}{}
 			}
-			visited[p] = struct{}{}
 			return nil
 		})
 	}
 
 	for absPath := range watchedFiles {
-		if sourceFilter.IsAccepted(absPath) {
+		switch {
+		case sourceFilter.IsAccepted(absPath):
 			watchedSourceFiles[absPath] = struct{}{}
-		}
-		if resourceFilter.IsAccepted(absPath) {
+		case resourceFilter.IsAccepted(absPath):
 			watchedResourceFiles[absPath] = struct{}{}
 		}
 	}

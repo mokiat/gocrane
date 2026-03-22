@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mokiat/gocrane/internal/command/flag"
@@ -17,7 +17,9 @@ import (
 func Run() *cli.Command {
 	var cfg runConfig
 	return &cli.Command{
-		Name: "run",
+		Name:        "run",
+		Usage:       "run and watch the go application",
+		Description: "use this command to run a go application and automatically rebuild and rerun it when source files change",
 		Flags: []cli.Flag{
 			newVerboseFlag(&cfg.Verbose),
 			newDirFlag(&cfg.Dirs),
@@ -33,20 +35,20 @@ func Run() *cli.Command {
 			newBatchDurationFlag(&cfg.BatchDuration),
 			newShutdownTimeoutFlag(&cfg.ShutdownTimeout),
 		},
-		Action: func(c *cli.Context) error {
-			return run(c.Context, cfg)
+		Action: func(ctx context.Context, _ *cli.Command) error {
+			return run(ctx, cfg)
 		},
 	}
 }
 
 type runConfig struct {
 	Verbose          bool
-	Dirs             cli.StringSlice
-	ExcludeDirs      cli.StringSlice
-	Sources          cli.StringSlice
-	ExcludeSources   cli.StringSlice
-	Resources        cli.StringSlice
-	ExcludeResources cli.StringSlice
+	Dirs             []string
+	ExcludeDirs      []string
+	Sources          []string
+	ExcludeSources   []string
+	Resources        []string
+	ExcludeResources []string
 	MainDir          string
 	BinaryFile       string
 	BuildArgs        flag.ShlexStringSlice
@@ -57,15 +59,15 @@ type runConfig struct {
 
 func run(ctx context.Context, cfg runConfig) error {
 	log.Println("Preparing filtering...")
-	watchFilter, err := buildFilterTree(cfg.Dirs.Value(), cfg.ExcludeDirs.Value())
+	watchFilter, err := buildFilterTree(cfg.Dirs, cfg.ExcludeDirs)
 	if err != nil {
 		return fmt.Errorf("problem with dir rules: %w", err)
 	}
-	sourceFilter, err := buildFilterTree(cfg.Sources.Value(), cfg.ExcludeSources.Value())
+	sourceFilter, err := buildFilterTree(cfg.Sources, cfg.ExcludeSources)
 	if err != nil {
 		return fmt.Errorf("problem with source rules: %w", err)
 	}
-	resourceFilter, err := buildFilterTree(cfg.Resources.Value(), cfg.ExcludeResources.Value())
+	resourceFilter, err := buildFilterTree(cfg.Resources, cfg.ExcludeResources)
 	if err != nil {
 		return fmt.Errorf("problem with resource rules: %w", err)
 	}
@@ -148,7 +150,7 @@ func run(ctx context.Context, cfg runConfig) error {
 	group.Go(pipeline.Build(
 		groupCtx,
 		cfg.MainDir,
-		cfg.BuildArgs.Value(),
+		cfg.BuildArgs.Items(),
 		batchChangeEventQueue,
 		buildEventQueue,
 		sourceFilter,
@@ -159,7 +161,7 @@ func run(ctx context.Context, cfg runConfig) error {
 	// Run new executables when built.
 	group.Go(pipeline.Run(
 		groupCtx,
-		cfg.RunArgs.Value(),
+		cfg.RunArgs.Items(),
 		buildEventQueue,
 		cfg.ShutdownTimeout,
 	))
