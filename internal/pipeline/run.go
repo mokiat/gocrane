@@ -21,12 +21,12 @@ func Run(
 	return func() error {
 		var runningProcess *project.Process
 
-		startProcess := func(path string) error {
+		startProcess := func(binaryPath string) error {
 			if runningProcess != nil {
 				return fmt.Errorf("there is already a running process")
 			}
 			log.Printf("Starting new process...")
-			process, err := runner.Run(context.Background(), path)
+			process, err := runner.Run(context.Background(), binaryPath)
 			if err != nil {
 				return fmt.Errorf("failed to start process: %w", err)
 			}

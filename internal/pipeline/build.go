@@ -26,20 +26,16 @@ func Build(
 	bootstrapEvent *BuildEvent,
 ) func() error {
 
-	// Create a temporary directory to store binaries.
-	tempDir, err := os.MkdirTemp("", "gocrane-*")
-	if err != nil {
-		return func() error {
-			return fmt.Errorf("failed to create temp directory: %w", err)
-		}
-	}
-	defer func() {
-		os.RemoveAll(tempDir)
-	}()
-
 	builder := project.NewBuilder(mainDir, buildArgs)
 
 	return func() error {
+		// Create a temporary directory to store binaries.
+		tempDir, err := os.MkdirTemp("", "gocrane-*")
+		if err != nil {
+			return fmt.Errorf("failed to create temp directory: %w", err)
+		}
+		defer os.RemoveAll(tempDir)
+
 		var lastBinary string
 		if bootstrapEvent != nil {
 			lastBinary = bootstrapEvent.Path

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
@@ -152,8 +153,11 @@ func (proc *watchProcess) startWatching(root string) *ds.Set[string] {
 func (proc *watchProcess) stopWatching(root string) *ds.Set[string] {
 	result := ds.NewSet[string](1)
 
+	// rootSubPath is used to ensure that we stop tracking only children of the root path,
+	// and not sibling paths that share the same prefix
+	rootSubPath := root + string(filepath.Separator)
 	for p := range proc.trackedPaths.Unbox() {
-		if strings.HasPrefix(p, root) {
+		if p == root || strings.HasPrefix(p, rootSubPath) {
 			result.Add(p)
 			err := proc.watcher.Remove(p)
 			if err == nil || errors.Is(err, fsnotify.ErrNonExistentWatch) {
