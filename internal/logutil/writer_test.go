@@ -28,10 +28,18 @@ var _ = Describe("Writer", func() {
 		Expect(buffer).To(gbytes.Say("first line\n"))
 	})
 
-	It("writes out two lines as two lines", func() {
-		io.WriteString(writer, "first line\n")
-		io.WriteString(writer, "second line\n")
+	It("writes out two logical lines as two separate log lines", func() {
+		io.WriteString(writer, "first line\nsecond line\n")
 		Expect(buffer).To(gbytes.Say("first line\n"))
 		Expect(buffer).To(gbytes.Say("second line\n"))
+		Expect(buffer).NotTo(gbytes.Say(".+"))
+	})
+
+	It("preserves intentional blank lines in the middle of output", func() {
+		io.WriteString(writer, "first line\n\nsecond line\n")
+		Expect(buffer).To(gbytes.Say("first line\n"))
+		Expect(buffer).To(gbytes.Say("\n"))
+		Expect(buffer).To(gbytes.Say("second line\n"))
+		Expect(buffer).NotTo(gbytes.Say(".+"))
 	})
 })
