@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
@@ -55,9 +56,9 @@ func Watch(
 			case event := <-watcher.Events:
 				changedPaths := proc.handleEvent(event)
 				if changedPaths != nil && !changedPaths.IsEmpty() {
-					out.Push(ctx, ChangeEvent{
-						Paths: changedPaths.Items(),
-					})
+					if !out.Push(ctx, ChangeEvent{Paths: changedPaths.Items()}) {
+						return nil
+					}
 				}
 			case err := <-watcher.Errors:
 				proc.logFSWatchError(err)
@@ -134,7 +135,7 @@ func (proc *watchProcess) startWatching(root string) *ds.Set[string] {
 		if isDir {
 			if err := proc.watcher.Add(absPath); err != nil {
 				proc.logFSWatchAddError(absPath, err)
-				return filesystem.ErrSkip
+				return nil // continue traversal to still attempt subdirectories
 			}
 		}
 
@@ -152,8 +153,11 @@ func (proc *watchProcess) startWatching(root string) *ds.Set[string] {
 func (proc *watchProcess) stopWatching(root string) *ds.Set[string] {
 	result := ds.NewSet[string](1)
 
+	// rootSubPath is used to ensure that we stop tracking only children of the root path,
+	// and not sibling paths that share the same prefix
+	rootSubPath := root + string(filepath.Separator)
 	for p := range proc.trackedPaths.Unbox() {
-		if strings.HasPrefix(p, root) {
+		if p == root || strings.HasPrefix(p, rootSubPath) {
 			result.Add(p)
 			err := proc.watcher.Remove(p)
 			if err == nil || errors.Is(err, fsnotify.ErrNonExistentWatch) {

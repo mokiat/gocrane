@@ -9,5 +9,5 @@ import (
 
 func TestLocation(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Filesystem Suite")
+	RunSpecs(t, "FileSystem Suite")
 }

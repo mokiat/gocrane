@@ -45,7 +45,9 @@ func Batch(
 			// A sufficient amount of time has passed since the first event was received
 			// so we can enable flushing.
 			case <-flushTimer.C:
-				flushChan = out // Allow flushing.
+				if batchEvent.Paths != nil {
+					flushChan = out // Allow flushing.
+				}
 
 			// Try to read new events and accumulate them.
 			case event := <-in:

@@ -128,7 +128,14 @@ func (t *FilterTree) navigateAway(current *filterTreeNode, isCurrentAccepted boo
 	if current != nil {
 		childNode = current.children[childName]
 	}
-	// check path rules
+	// check pattern rules (lower priority)
+	if t.isSegmentPatternAccepted(childName) {
+		childIsAccepted = true
+	}
+	if t.isSegmentPatternRejected(childName) {
+		childIsAccepted = false
+	}
+	// check path rules (higher priority — explicit paths override patterns)
 	if childNode != nil {
 		if childNode.shouldReject {
 			childIsAccepted = false
@@ -136,13 +143,6 @@ func (t *FilterTree) navigateAway(current *filterTreeNode, isCurrentAccepted boo
 		if childNode.shouldAccept {
 			childIsAccepted = true
 		}
-	}
-	// check pattern rules
-	if t.isSegmentPatternAccepted(childName) {
-		childIsAccepted = true
-	}
-	if t.isSegmentPatternRejected(childName) {
-		childIsAccepted = false
 	}
 	return childNode, childIsAccepted
 }

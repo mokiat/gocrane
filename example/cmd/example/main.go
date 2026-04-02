@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 
@@ -14,11 +13,17 @@ import (
 )
 
 func main() {
+	fs := http.FileServer(http.Dir("./public"))
+
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.Dir("./public")))
-	mux.Handle("/greet", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[%s] %s\n", r.Method, r.URL.Path)
+		fs.ServeHTTP(w, r)
+	})
+	mux.HandleFunc("/greet", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("[%s] %s\n", r.Method, r.URL.Path)
 		fmt.Fprint(w, internal.Greet())
-	}))
+	})
 	server := &http.Server{
 		Addr:    "0.0.0.0:8080",
 		Handler: mux,
@@ -31,10 +36,9 @@ func main() {
 		}
 	}()
 
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
-	defer signal.Stop(sigChan)
-	<-sigChan
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	<-ctx.Done()
 
 	log.Println("Shutting down...")
 	if err := server.Shutdown(context.Background()); err != nil {
