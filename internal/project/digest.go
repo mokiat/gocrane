@@ -33,6 +33,6 @@ func WriteFileDigest(out hash.Hash, file string) error {
 	// Note: Don't include millisecond precision, as that seems to differ between
 	// host and client machine (in some cases it is not included).
 	const timeFormat = "2006/01/02 15:04:05"
-	fmt.Fprint(out, len(file), file, stat.ModTime().UTC().Format(timeFormat), stat.Size(), "|")
+	fmt.Fprintf(out, "%s\x00%s\x00%d|", file, stat.ModTime().UTC().Format(timeFormat), stat.Size())
 	return nil
 }

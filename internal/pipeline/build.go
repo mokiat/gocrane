@@ -39,7 +39,9 @@ func Build(
 		var lastBinary string
 		if bootstrapEvent != nil {
 			lastBinary = bootstrapEvent.Path
-			out.Push(ctx, *bootstrapEvent)
+			if !out.Push(ctx, *bootstrapEvent) {
+				return nil
+			}
 		}
 
 		var changeEvent ChangeEvent
@@ -61,9 +63,9 @@ func Build(
 			// If just a restart is required, then produce a fake build event
 			// based on the last binary.
 			if !shouldBuild && shouldRestart {
-				out.Push(ctx, BuildEvent{
-					Path: lastBinary,
-				})
+				if !out.Push(ctx, BuildEvent{Path: lastBinary}) {
+					return nil
+				}
 				continue
 			}
 
@@ -76,9 +78,9 @@ func Build(
 
 			log.Printf("Build was successful.")
 			lastBinary = path
-			out.Push(ctx, BuildEvent{
-				Path: path,
-			})
+			if !out.Push(ctx, BuildEvent{Path: path}) {
+				return nil
+			}
 		}
 
 		return nil

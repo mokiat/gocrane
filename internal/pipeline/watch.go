@@ -56,9 +56,9 @@ func Watch(
 			case event := <-watcher.Events:
 				changedPaths := proc.handleEvent(event)
 				if changedPaths != nil && !changedPaths.IsEmpty() {
-					out.Push(ctx, ChangeEvent{
-						Paths: changedPaths.Items(),
-					})
+					if !out.Push(ctx, ChangeEvent{Paths: changedPaths.Items()}) {
+						return nil
+					}
 				}
 			case err := <-watcher.Errors:
 				proc.logFSWatchError(err)
@@ -135,7 +135,7 @@ func (proc *watchProcess) startWatching(root string) *ds.Set[string] {
 		if isDir {
 			if err := proc.watcher.Add(absPath); err != nil {
 				proc.logFSWatchAddError(absPath, err)
-				return filesystem.ErrSkip
+				return nil // continue traversal to still attempt subdirectories
 			}
 		}
 
