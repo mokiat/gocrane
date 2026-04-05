@@ -93,19 +93,22 @@ func (proc *watchProcess) handleEvent(event fsnotify.Event) *ds.Set[string] {
 	case event.Has(fsnotify.Create):
 		return proc.startWatching(absPath)
 
-	case event.Has(fsnotify.Rename):
-		// Rename is produced on Linux when a file is deleted.
+	case event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename):
+		// Note: Rename is produced on Linux when a file is deleted.
 		return proc.stopWatching(absPath)
 
-	case event.Has(fsnotify.Remove):
-		return proc.stopWatching(absPath)
+	case event.Has(fsnotify.Write):
+		// Note: Always check Write before Chmod, since on MacOS both events
+		// can be produced for the same change.
+		return ds.SetFromSlice([]string{absPath})
 
 	case event.Has(fsnotify.Chmod):
 		// We do nothing on these, since MacOS produces a lot of them.
 		return nil
 
 	default:
-		return ds.SetFromSlice([]string{absPath})
+		// Don't trigger on unknown events.
+		return nil
 	}
 }
 
