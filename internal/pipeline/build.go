@@ -20,7 +20,7 @@ func Build(
 	mainDir string,
 	buildArgs []string,
 	in Queue[ChangeEvent],
-	out Queue[RunRequest],
+	out Queue[RunInput],
 	rebuildFilter *filesystem.FilterTree,
 	restartFilter *filesystem.FilterTree,
 	lastBinary string,
@@ -55,7 +55,7 @@ func Build(
 			// If just a restart is required, then produce a fake build event
 			// based on the last binary.
 			if !shouldBuild && shouldRestart {
-				if !out.Push(ctx, RunRequest{BinaryPath: lastBinary}) {
+				if !out.Push(ctx, RunInput{BinaryPath: lastBinary}) {
 					return nil
 				}
 				continue
@@ -70,7 +70,7 @@ func Build(
 
 			log.Printf("Build was successful.")
 			lastBinary = path
-			if !out.Push(ctx, RunRequest{BinaryPath: path}) {
+			if !out.Push(ctx, RunInput{BinaryPath: path}) {
 				return nil
 			}
 		}

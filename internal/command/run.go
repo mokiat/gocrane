@@ -86,7 +86,7 @@ func run(ctx context.Context, cfg runConfig) error {
 
 	var (
 		fakeChangeEvent *pipeline.ChangeEvent
-		fakeRunRequest  *pipeline.RunRequest
+		fakeRunRequest  *pipeline.RunInput
 	)
 	if cfg.BinaryFile != "" {
 		log.Println("Reading stored digest...")
@@ -105,7 +105,7 @@ func run(ctx context.Context, cfg runConfig) error {
 		log.Println("Comparing stored and current digests...")
 		if storedDigest == digest {
 			log.Println("\t Digest match, will use existing binary.")
-			fakeRunRequest = &pipeline.RunRequest{
+			fakeRunRequest = &pipeline.RunInput{
 				BinaryPath: cfg.BinaryFile,
 			}
 		} else {
@@ -123,7 +123,7 @@ func run(ctx context.Context, cfg runConfig) error {
 	// Prepare pipeline events.
 	changeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent], 1024)
 	batchChangeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent])
-	runRequests := make(pipeline.Queue[pipeline.RunRequest], 1)
+	runRequests := make(pipeline.Queue[pipeline.RunInput], 1)
 	if fakeRunRequest != nil {
 		runRequests <- *fakeRunRequest
 	}
