@@ -9,8 +9,8 @@ import (
 	"github.com/mokiat/gocrane/internal/project"
 )
 
-// RunInput can be sent to the RunnerNode to trigger it to run a new binary.
-type RunInput struct {
+// RunnerInput can be sent to the RunnerNode to trigger it to run a new binary.
+type RunnerInput struct {
 
 	// BinaryPath is the path to the newly built binary that should be run.
 	BinaryPath string
@@ -38,8 +38,8 @@ type RunnerNode struct {
 //
 // If the context is canceled, the runner node will stop any running process
 // and exit.
-func (n *RunnerNode) Run(ctx context.Context, inputs Queue[RunInput]) error {
-	var input RunInput
+func (n *RunnerNode) Run(ctx context.Context, inputs Queue[RunnerInput]) error {
+	var input RunnerInput
 	for inputs.Pop(ctx, &input) {
 		if err := n.stopProcess(); err != nil {
 			return err
