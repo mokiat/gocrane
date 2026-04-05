@@ -86,7 +86,7 @@ func run(ctx context.Context, cfg runConfig) error {
 
 	var (
 		fakeChangeEvent *pipeline.ChangeEvent
-		fakeRunEvent    *pipeline.RunEvent
+		fakeRunRequest  *pipeline.RunRequest
 	)
 	if cfg.BinaryFile != "" {
 		log.Println("Reading stored digest...")
@@ -105,7 +105,7 @@ func run(ctx context.Context, cfg runConfig) error {
 		log.Println("Comparing stored and current digests...")
 		if storedDigest == digest {
 			log.Println("\t Digest match, will use existing binary.")
-			fakeRunEvent = &pipeline.RunEvent{
+			fakeRunRequest = &pipeline.RunRequest{
 				BinaryPath: cfg.BinaryFile,
 			}
 		} else {
@@ -123,9 +123,9 @@ func run(ctx context.Context, cfg runConfig) error {
 	// Prepare pipeline events.
 	changeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent], 1024)
 	batchChangeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent])
-	runEventsQueue := make(pipeline.Queue[pipeline.RunEvent], 1)
-	if fakeRunEvent != nil {
-		runEventsQueue <- *fakeRunEvent
+	runRequests := make(pipeline.Queue[pipeline.RunRequest], 1)
+	if fakeRunRequest != nil {
+		runRequests <- *fakeRunRequest
 	}
 
 	// Prepare pipeline nodes.
@@ -166,7 +166,7 @@ func run(ctx context.Context, cfg runConfig) error {
 		cfg.MainDir,
 		cfg.BuildArgs.Items(),
 		batchChangeEventQueue,
-		runEventsQueue,
+		runRequests,
 		sourceFilter,
 		resourceFilter,
 		cfg.BinaryFile,
@@ -174,7 +174,7 @@ func run(ctx context.Context, cfg runConfig) error {
 
 	// Run new executables when built.
 	group.Go(func() error {
-		return runnerNode.Run(groupCtx, runEventsQueue)
+		return runnerNode.Run(groupCtx, runRequests)
 	})
 
 	// Wait for pipeline to finish.

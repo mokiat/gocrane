@@ -9,6 +9,13 @@ import (
 	"github.com/mokiat/gocrane/internal/project"
 )
 
+// RunRequest can be sent to the RunnerNode to trigger it to run a new binary.
+type RunRequest struct {
+
+	// BinaryPath is the path to the newly built binary that should be run.
+	BinaryPath string
+}
+
 // NewRunnerNode creates a new RunnerNode with the specified arguments.
 func NewRunnerNode(workDir string, runArgs []string, shutdownTimeout time.Duration) *RunnerNode {
 	return &RunnerNode{
@@ -18,7 +25,8 @@ func NewRunnerNode(workDir string, runArgs []string, shutdownTimeout time.Durati
 	}
 }
 
-// RunnerNode is responsible for running the built binary and stopping it when needed.
+// RunnerNode is responsible for running a binary and stopping it when a new
+// one is available or when the context is canceled.
 type RunnerNode struct {
 	runner          *project.Runner
 	process         *project.Process
@@ -30,13 +38,13 @@ type RunnerNode struct {
 //
 // If the context is canceled, the runner node will stop any running process
 // and exit.
-func (r *RunnerNode) Run(ctx context.Context, runEvents Queue[RunEvent]) error {
-	var runEvent RunEvent
-	for runEvents.Pop(ctx, &runEvent) {
+func (r *RunnerNode) Run(ctx context.Context, requestQueue Queue[RunRequest]) error {
+	var request RunRequest
+	for requestQueue.Pop(ctx, &request) {
 		if err := r.stopProcess(); err != nil {
 			return err
 		}
-		if err := r.startProcess(runEvent.BinaryPath); err != nil {
+		if err := r.startProcess(request.BinaryPath); err != nil {
 			return err
 		}
 	}
