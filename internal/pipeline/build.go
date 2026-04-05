@@ -20,10 +20,10 @@ func Build(
 	mainDir string,
 	buildArgs []string,
 	in Queue[ChangeEvent],
-	out Queue[BuildEvent],
+	out Queue[RunEvent],
 	rebuildFilter *filesystem.FilterTree,
 	restartFilter *filesystem.FilterTree,
-	bootstrapEvent *BuildEvent,
+	lastBinary string,
 ) func() error {
 
 	builder := project.NewBuilder(mainDir, buildArgs)
@@ -35,14 +35,6 @@ func Build(
 			return fmt.Errorf("failed to create temp directory: %w", err)
 		}
 		defer os.RemoveAll(tempDir)
-
-		var lastBinary string
-		if bootstrapEvent != nil {
-			lastBinary = bootstrapEvent.Path
-			if !out.Push(ctx, *bootstrapEvent) {
-				return nil
-			}
-		}
 
 		var changeEvent ChangeEvent
 		for in.Pop(ctx, &changeEvent) {
@@ -63,7 +55,7 @@ func Build(
 			// If just a restart is required, then produce a fake build event
 			// based on the last binary.
 			if !shouldBuild && shouldRestart {
-				if !out.Push(ctx, BuildEvent{Path: lastBinary}) {
+				if !out.Push(ctx, RunEvent{BinaryPath: lastBinary}) {
 					return nil
 				}
 				continue
@@ -78,7 +70,7 @@ func Build(
 
 			log.Printf("Build was successful.")
 			lastBinary = path
-			if !out.Push(ctx, BuildEvent{Path: path}) {
+			if !out.Push(ctx, RunEvent{BinaryPath: path}) {
 				return nil
 			}
 		}

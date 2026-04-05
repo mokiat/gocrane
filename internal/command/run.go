@@ -22,6 +22,7 @@ func Run() *cli.Command {
 		Description: "use this command to run a go application and automatically rebuild and rerun it when source files change",
 		Flags: []cli.Flag{
 			newVerboseFlag(&cfg.Verbose),
+			newPWDFlag(&cfg.PWD),
 			newDirFlag(&cfg.Dirs),
 			newDirExcludeFlag(&cfg.ExcludeDirs),
 			newSourceFlag(&cfg.Sources),
@@ -43,6 +44,7 @@ func Run() *cli.Command {
 
 type runConfig struct {
 	Verbose          bool
+	PWD              string
 	Dirs             []string
 	ExcludeDirs      []string
 	Sources          []string
@@ -84,7 +86,7 @@ func run(ctx context.Context, cfg runConfig) error {
 
 	var (
 		fakeChangeEvent *pipeline.ChangeEvent
-		fakeBuildEvent  *pipeline.BuildEvent
+		fakeRunEvent    *pipeline.RunEvent
 	)
 	if cfg.BinaryFile != "" {
 		log.Println("Reading stored digest...")
@@ -103,8 +105,8 @@ func run(ctx context.Context, cfg runConfig) error {
 		log.Println("Comparing stored and current digests...")
 		if storedDigest == digest {
 			log.Println("\t Digest match, will use existing binary.")
-			fakeBuildEvent = &pipeline.BuildEvent{
-				Path: cfg.BinaryFile,
+			fakeRunEvent = &pipeline.RunEvent{
+				BinaryPath: cfg.BinaryFile,
 			}
 		} else {
 			log.Printf("\t Digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
@@ -118,11 +120,23 @@ func run(ctx context.Context, cfg runConfig) error {
 		}
 	}
 
-	log.Println("Running pipeline...")
+	// Prepare pipeline events.
 	changeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent], 1024)
 	batchChangeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent])
-	buildEventQueue := make(pipeline.Queue[pipeline.BuildEvent])
+	runEventsQueue := make(pipeline.Queue[pipeline.RunEvent], 1)
+	if fakeRunEvent != nil {
+		runEventsQueue <- *fakeRunEvent
+	}
 
+	// Prepare pipeline nodes.
+	runnerNode := pipeline.NewRunnerNode(
+		cfg.PWD,
+		cfg.RunArgs.Items(),
+		cfg.ShutdownTimeout,
+	)
+
+	// Run pipeline nodes.
+	log.Println("Running pipeline...")
 	group, groupCtx := errgroup.WithContext(ctx)
 
 	// Watch for filesystem changes.
@@ -152,20 +166,18 @@ func run(ctx context.Context, cfg runConfig) error {
 		cfg.MainDir,
 		cfg.BuildArgs.Items(),
 		batchChangeEventQueue,
-		buildEventQueue,
+		runEventsQueue,
 		sourceFilter,
 		resourceFilter,
-		fakeBuildEvent,
+		cfg.BinaryFile,
 	))
 
 	// Run new executables when built.
-	group.Go(pipeline.Run(
-		groupCtx,
-		cfg.RunArgs.Items(),
-		buildEventQueue,
-		cfg.ShutdownTimeout,
-	))
+	group.Go(func() error {
+		return runnerNode.Run(groupCtx, runEventsQueue)
+	})
 
+	// Wait for pipeline to finish.
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("pipeline error: %w", err)
 	}

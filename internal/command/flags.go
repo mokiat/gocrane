@@ -20,6 +20,17 @@ func newVerboseFlag(target *bool) cli.Flag {
 	}
 }
 
+func newPWDFlag(target *string) cli.Flag {
+	return &cli.StringFlag{
+		Name:        "work-dir",
+		Usage:       "folder to be used as the working directory for running the application",
+		Aliases:     []string{"pwd"},
+		Sources:     cli.EnvVars("GOCRANE_PWD"),
+		Value:       ".",
+		Destination: target,
+	}
+}
+
 func newDirFlag(target *[]string) cli.Flag {
 	return &cli.StringSliceFlag{
 		Name:        "dir",
