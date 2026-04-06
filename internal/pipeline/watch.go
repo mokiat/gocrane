@@ -19,8 +19,8 @@ func Watch(
 	verbose bool,
 	dirs []string,
 	watchFilter *filesystem.FilterTree,
-	out Queue[ChangeEvent],
-	bootstrapEvent *ChangeEvent,
+	out Queue[OldChangeEvent],
+	bootstrapEvent *OldChangeEvent,
 
 ) func() error {
 
@@ -56,7 +56,7 @@ func Watch(
 			case event := <-watcher.Events:
 				changedPaths := proc.handleEvent(event)
 				if changedPaths != nil && !changedPaths.IsEmpty() {
-					if !out.Push(ctx, ChangeEvent{Paths: changedPaths.Items()}) {
+					if !out.Push(ctx, OldChangeEvent{Paths: changedPaths.Items()}) {
 						return nil
 					}
 				}

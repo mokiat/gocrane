@@ -19,7 +19,7 @@ func Build(
 	ctx context.Context,
 	mainDir string,
 	buildArgs []string,
-	in Queue[ChangeEvent],
+	in Queue[OldChangeEvent],
 	out Queue[RunnerInput],
 	rebuildFilter *filesystem.FilterTree,
 	restartFilter *filesystem.FilterTree,
@@ -36,7 +36,7 @@ func Build(
 		}
 		defer os.RemoveAll(tempDir)
 
-		var changeEvent ChangeEvent
+		var changeEvent OldChangeEvent
 		for in.Pop(ctx, &changeEvent) {
 			shouldBuild := isAnyAccepted(rebuildFilter, changeEvent.Paths) || isAnyForceRebuild(changeEvent.Paths)
 			shouldRestart := isAnyAccepted(restartFilter, changeEvent.Paths)

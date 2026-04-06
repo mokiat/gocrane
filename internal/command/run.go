@@ -85,7 +85,7 @@ func run(ctx context.Context, cfg runConfig) error {
 	}
 
 	var (
-		fakeChangeEvent *pipeline.ChangeEvent
+		fakeChangeEvent *pipeline.OldChangeEvent
 		fakeRunRequest  *pipeline.RunnerInput
 	)
 	if cfg.BinaryFile != "" {
@@ -110,19 +110,19 @@ func run(ctx context.Context, cfg runConfig) error {
 			}
 		} else {
 			log.Printf("\t Digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
-			fakeChangeEvent = &pipeline.ChangeEvent{
+			fakeChangeEvent = &pipeline.OldChangeEvent{
 				Paths: []string{pipeline.ForceBuildPath},
 			}
 		}
 	} else {
-		fakeChangeEvent = &pipeline.ChangeEvent{
+		fakeChangeEvent = &pipeline.OldChangeEvent{
 			Paths: []string{pipeline.ForceBuildPath},
 		}
 	}
 
 	// Prepare pipeline events.
-	changeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent], 1024)
-	batchChangeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent])
+	changeEventQueue := make(pipeline.Queue[pipeline.OldChangeEvent], 1024)
+	batchChangeEventQueue := make(pipeline.Queue[pipeline.OldChangeEvent])
 	runRequests := make(pipeline.Queue[pipeline.RunnerInput], 1)
 	if fakeRunRequest != nil {
 		runRequests <- *fakeRunRequest

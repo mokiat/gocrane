@@ -7,16 +7,16 @@ import (
 
 func Batch(
 	ctx context.Context,
-	in Queue[ChangeEvent],
-	out Queue[ChangeEvent],
+	in Queue[OldChangeEvent],
+	out Queue[OldChangeEvent],
 	batchDuration time.Duration,
 ) func() error {
 
 	return func() error {
 		var (
-			flushTimer                    = time.NewTimer(batchDuration)
-			flushChan  chan<- ChangeEvent = nil
-			batchEvent ChangeEvent
+			flushTimer                       = time.NewTimer(batchDuration)
+			flushChan  chan<- OldChangeEvent = nil
+			batchEvent OldChangeEvent
 		)
 
 		stopTimer := func() {
