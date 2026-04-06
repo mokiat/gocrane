@@ -4,9 +4,9 @@ type ChangeEvent struct {
 	Paths []string
 }
 
-// InvalidationEvent indicates that the application needs to be restarted and
+// RestartEvent indicates that the application needs to be restarted and
 // optionally rebuilt as well.
-type InvalidationEvent struct {
+type RestartEvent struct {
 
 	// ShouldRebuild indicates whether the application should be rebuilt before
 	// being restarted. If false, the application will be restarted with the

@@ -9,6 +9,8 @@ import (
 	"github.com/mokiat/gocrane/internal/project"
 )
 
+// TODO: DELETE THIS NODE AND USE LifecycleNode.
+
 // RunnerInput can be sent to the RunnerNode to trigger it to run a new binary.
 type RunnerInput struct {
 
