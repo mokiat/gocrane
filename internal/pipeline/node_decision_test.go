@@ -27,6 +27,7 @@ var _ = Describe("DecisionNode", func() {
 		out pipeline.Queue[pipeline.RestartEvent]
 
 		node *pipeline.DecisionNode
+		done chan struct{}
 	)
 
 	BeforeEach(func() {
@@ -46,11 +47,17 @@ var _ = Describe("DecisionNode", func() {
 				return fakeRestartFilter(path)
 			},
 		)
-		go node.Run(ctx, in, out)
+
+		done = make(chan struct{})
+		go func() {
+			defer close(done)
+			node.Run(ctx, in, out)
+		}()
 	})
 
 	AfterEach(func() {
 		ctxCancel()
+		<-done
 	})
 
 	When("the pipeline is running", func() {
