@@ -39,7 +39,7 @@ func Traverse(root string, callback TraverseFunc) {
 			if isDir && errors.Is(cbErr, ErrSkip) {
 				return filepath.SkipDir
 			} else {
-				return nil
+				return filepath.SkipAll
 			}
 		}
 		return nil
