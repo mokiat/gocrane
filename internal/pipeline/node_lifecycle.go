@@ -57,7 +57,7 @@ func (n *LifecycleNode) Run(ctx context.Context, events Queue[RestartEvent]) err
 		if event.ShouldRebuild || (currentBinaryPath == "") {
 			binaryPath, err := n.buildBinary(ctx, tempDir)
 			if err != nil {
-				continue
+				continue // keep the old binary running
 			}
 			currentBinaryPath = binaryPath
 		}

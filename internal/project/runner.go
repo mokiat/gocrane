@@ -65,7 +65,7 @@ func (p *Process) Stop(ctxShutdown context.Context) error {
 		select {
 		case <-ctxShutdown.Done():
 			log.Println("Killing program, as it failed to shutdown gracefully...")
-			p.killRun()
+			p.killRun() // force a sigkill
 		case <-p.ctxRun.Done():
 		}
 	}()
