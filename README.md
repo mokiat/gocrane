@@ -66,3 +66,54 @@ go install github.com/mokiat/gocrane@latest
 Normally, it would be sufficient to run `gocrane run` in the root folder of your project. If the `main` package is not located in the root folder (e.g. in `./cmd/executable/`), you would need to use the `main` flag to specify that.
 
 For more information, consult `gocrane --help`.
+
+## Developer's Guide
+
+GoCrane's runtime logic is organized as a **pipeline of concurrent nodes** connected by typed event queues. Each node runs in its own goroutine and communicates exclusively through channels — there is no shared mutable state between nodes. All goroutines are coordinated via an `errgroup` with a shared context; if any node returns an error or the top-level context is cancelled, the whole pipeline shuts down.
+
+### Events
+
+Two event types flow through the pipeline:
+
+- **`ChangeEvent`** — carries the path of a file or directory that changed on the filesystem.
+- **`RestartEvent`** — signals that the application should be restarted, with a `ShouldRebuild` flag distinguishing a full rebuild (source change) from a restart-only (resource change).
+
+### Pipeline
+
+```mermaid
+flowchart LR
+    FS[("Filesystem")]
+
+    subgraph pipeline["Pipeline"]
+        WN["Watch Node"]
+        DN["Decision Node"]
+        BN["Batcher Node"]
+        LN["Lifecycle Node"]
+    end
+
+    App[("Managed Process")]
+    Boot(["Bootstrap Event"])
+
+    FS -- fsnotify --> WN
+    WN -- ChangeEvent --> DN
+    DN -- RestartEvent --> BN
+    BN -- RestartEvent --> LN
+    Boot -.->|"injected at startup"| LN
+    LN -- build + run --> App
+```
+
+**Watch Node** — subscribes to the filesystem via `fsnotify` and emits a `ChangeEvent` for each relevant file-system notification. It automatically adds newly-created directories to the watch list and removes deleted ones, keeping recursive watching consistent without restarts.
+
+**Decision Node** — classifies each `ChangeEvent` by its path. Source file changes emit a `RestartEvent{ShouldRebuild: true}`; resource file changes emit a `RestartEvent{ShouldRebuild: false}`; all other paths are silently dropped.
+
+**Batcher Node** — debounces incoming `RestartEvent`s using a configurable timer. While the timer is running, events accumulate (a single rebuild request supersedes a restart-only request). Once the timer fires with no new arrivals, one merged event is flushed downstream. This prevents excessive builds during bulk file operations such as branch switches or file fetches.
+
+**Lifecycle Node** — drives the application's actual lifecycle. On a `RestartEvent{ShouldRebuild: true}` it invokes `go build`, stops the running process, and starts the new binary. On a `RestartEvent{ShouldRebuild: false}` it skips the build and restarts with the existing binary. If a build fails, the old process is intentionally kept running until the next successful build.
+
+### Bootstrap
+
+At startup, a bootstrap `RestartEvent` is injected directly into the Lifecycle Node's input queue — bypassing the Watch, Decision, and Batcher nodes entirely. If a pre-built cached binary is found whose source digest matches the current source files, the event requests a run-only; otherwise it requests a full rebuild.
+
+### Queues
+
+Inter-node communication uses the `Queue[T]` type — a thin generic wrapper around a buffered channel. Its `Push` and `Pop` methods are context-aware: both return `false` when the context is cancelled, which is how each node knows to stop its loop and return cleanly, without any explicit channel closing.
