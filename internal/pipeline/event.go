@@ -1,10 +1,5 @@
 package pipeline
 
-// Deprecated: Switch to ChangeEvent and new node mechanism.
-type OldChangeEvent struct {
-	Paths []string
-}
-
 // ChangeEvent represents a change to a watched file or folder.
 type ChangeEvent struct {
 
