@@ -1,35 +1,19 @@
 package pipeline
 
-import "context"
-
-type Queue[T any] chan T
-
-func (q Queue[T]) Push(ctx context.Context, value T) bool {
-	select {
-	case <-ctx.Done():
-		return false
-	case q <- value:
-		return true
-	}
-}
-
-func (q Queue[T]) Pop(ctx context.Context, ptr *T) bool {
-	select {
-	case event, ok := <-q:
-		if !ok {
-			return false
-		}
-		*ptr = event
-		return true
-	case <-ctx.Done():
-		return false
-	}
-}
-
+// ChangeEvent represents a change to a watched file or folder.
 type ChangeEvent struct {
-	Paths []string
+
+	// Path is the absolute path to the file or folder that has changed.
+	Path string
 }
 
-type BuildEvent struct {
-	Path string
+// RestartEvent indicates that the application needs to be restarted and
+// optionally rebuilt as well.
+type RestartEvent struct {
+
+	// ShouldRebuild indicates whether the application should be rebuilt before
+	// being restarted. If false, the application will be restarted with the
+	// currently available binary. If true, the application will be rebuilt before
+	// being restarted.
+	ShouldRebuild bool
 }

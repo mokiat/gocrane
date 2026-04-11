@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/mokiat/gocrane/internal/command/flag"
 	"github.com/mokiat/gocrane/internal/project"
@@ -14,7 +14,9 @@ import (
 func Build() *cli.Command {
 	var cfg buildConfig
 	return &cli.Command{
-		Name: "build",
+		Name:        "build",
+		Usage:       "build a cached binary of the go application",
+		Description: "use this command during image build to prepare a cached version of the application binary for faster startup",
 		Flags: []cli.Flag{
 			newVerboseFlag(&cfg.Verbose),
 			newDirFlag(&cfg.Dirs),
@@ -27,20 +29,20 @@ func Build() *cli.Command {
 			newBinaryFlag(&cfg.BinaryFile, true),
 			newBuildArgs(&cfg.BuildArgs),
 		},
-		Action: func(c *cli.Context) error {
-			return build(c.Context, cfg)
+		Action: func(ctx context.Context, _ *cli.Command) error {
+			return build(ctx, cfg)
 		},
 	}
 }
 
 type buildConfig struct {
 	Verbose          bool
-	Dirs             cli.StringSlice
-	ExcludeDirs      cli.StringSlice
-	Sources          cli.StringSlice
-	ExcludeSources   cli.StringSlice
-	Resources        cli.StringSlice
-	ExcludeResources cli.StringSlice
+	Dirs             []string
+	ExcludeDirs      []string
+	Sources          []string
+	ExcludeSources   []string
+	Resources        []string
+	ExcludeResources []string
 	MainDir          string
 	BinaryFile       string
 	BuildArgs        flag.ShlexStringSlice
@@ -48,31 +50,28 @@ type buildConfig struct {
 
 func build(ctx context.Context, cfg buildConfig) error {
 	log.Println("Building binary...")
-	builder := project.NewBuilder(cfg.MainDir, cfg.BuildArgs.Value())
+	builder := project.NewBuilder(cfg.MainDir, cfg.BuildArgs.Items())
 	if err := builder.Build(ctx, cfg.BinaryFile); err != nil {
 		return fmt.Errorf("failed to build binary: %w", err)
 	}
 
 	log.Println("Preparing filtering...")
-	watchFilter, err := buildFilterTree(cfg.Dirs.Value(), cfg.ExcludeDirs.Value())
+	watchFilter, err := buildFilterTree(cfg.Dirs, cfg.ExcludeDirs)
 	if err != nil {
 		return fmt.Errorf("problem with dir rules: %w", err)
 	}
-	sourceFilter, err := buildFilterTree(cfg.Sources.Value(), cfg.ExcludeSources.Value())
+	sourceFilter, err := buildFilterTree(cfg.Sources, cfg.ExcludeSources)
 	if err != nil {
 		return fmt.Errorf("problem with source rules: %w", err)
 	}
-	resourceFilter, err := buildFilterTree(cfg.Resources.Value(), cfg.ExcludeResources.Value())
+	resourceFilter, err := buildFilterTree(cfg.Resources, cfg.ExcludeResources)
 	if err != nil {
 		return fmt.Errorf("problem with resource rules: %w", err)
 	}
 	rootDirs := watchFilter.RootPaths()
 
-	var summary *project.Summary
-	if cfg.Verbose || cfg.BinaryFile != "" {
-		log.Println("Analyzing project...")
-		summary = project.Analyze(rootDirs, watchFilter, sourceFilter, resourceFilter)
-	}
+	log.Println("Analyzing project...")
+	summary := project.Analyze(rootDirs, watchFilter, sourceFilter, resourceFilter)
 	if cfg.Verbose {
 		printSummary(summary)
 	}

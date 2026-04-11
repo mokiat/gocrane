@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestLogutil(t *testing.T) {
+func TestLogUtil(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Log Util Suite")
 }

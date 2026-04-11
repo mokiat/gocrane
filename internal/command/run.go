@@ -6,20 +6,24 @@ import (
 	"log"
 	"time"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/mokiat/gocrane/internal/command/flag"
 	"github.com/mokiat/gocrane/internal/pipeline"
 	"github.com/mokiat/gocrane/internal/project"
+	"github.com/mokiat/gog/opt"
 )
 
 func Run() *cli.Command {
 	var cfg runConfig
 	return &cli.Command{
-		Name: "run",
+		Name:        "run",
+		Usage:       "run and watch the go application",
+		Description: "use this command to run a go application and automatically rebuild and rerun it when source files change",
 		Flags: []cli.Flag{
 			newVerboseFlag(&cfg.Verbose),
+			newPWDFlag(&cfg.PWD),
 			newDirFlag(&cfg.Dirs),
 			newDirExcludeFlag(&cfg.ExcludeDirs),
 			newSourceFlag(&cfg.Sources),
@@ -33,20 +37,21 @@ func Run() *cli.Command {
 			newBatchDurationFlag(&cfg.BatchDuration),
 			newShutdownTimeoutFlag(&cfg.ShutdownTimeout),
 		},
-		Action: func(c *cli.Context) error {
-			return run(c.Context, cfg)
+		Action: func(ctx context.Context, _ *cli.Command) error {
+			return run(ctx, cfg)
 		},
 	}
 }
 
 type runConfig struct {
 	Verbose          bool
-	Dirs             cli.StringSlice
-	ExcludeDirs      cli.StringSlice
-	Sources          cli.StringSlice
-	ExcludeSources   cli.StringSlice
-	Resources        cli.StringSlice
-	ExcludeResources cli.StringSlice
+	PWD              string
+	Dirs             []string
+	ExcludeDirs      []string
+	Sources          []string
+	ExcludeSources   []string
+	Resources        []string
+	ExcludeResources []string
 	MainDir          string
 	BinaryFile       string
 	BuildArgs        flag.ShlexStringSlice
@@ -57,15 +62,15 @@ type runConfig struct {
 
 func run(ctx context.Context, cfg runConfig) error {
 	log.Println("Preparing filtering...")
-	watchFilter, err := buildFilterTree(cfg.Dirs.Value(), cfg.ExcludeDirs.Value())
+	watchFilter, err := buildFilterTree(cfg.Dirs, cfg.ExcludeDirs)
 	if err != nil {
 		return fmt.Errorf("problem with dir rules: %w", err)
 	}
-	sourceFilter, err := buildFilterTree(cfg.Sources.Value(), cfg.ExcludeSources.Value())
+	sourceFilter, err := buildFilterTree(cfg.Sources, cfg.ExcludeSources)
 	if err != nil {
 		return fmt.Errorf("problem with source rules: %w", err)
 	}
-	resourceFilter, err := buildFilterTree(cfg.Resources.Value(), cfg.ExcludeResources.Value())
+	resourceFilter, err := buildFilterTree(cfg.Resources, cfg.ExcludeResources)
 	if err != nil {
 		return fmt.Errorf("problem with resource rules: %w", err)
 	}
@@ -80,10 +85,7 @@ func run(ctx context.Context, cfg runConfig) error {
 		printSummary(summary)
 	}
 
-	var (
-		fakeChangeEvent *pipeline.ChangeEvent
-		fakeBuildEvent  *pipeline.BuildEvent
-	)
+	var bootstrapEvent pipeline.RestartEvent
 	if cfg.BinaryFile != "" {
 		log.Println("Reading stored digest...")
 		digestFile := fmt.Sprintf("%s.dig", cfg.BinaryFile)
@@ -101,69 +103,56 @@ func run(ctx context.Context, cfg runConfig) error {
 		log.Println("Comparing stored and current digests...")
 		if storedDigest == digest {
 			log.Println("\t Digest match, will use existing binary.")
-			fakeBuildEvent = &pipeline.BuildEvent{
-				Path: cfg.BinaryFile,
-			}
+			bootstrapEvent.ShouldRebuild = false
 		} else {
 			log.Printf("\t Digest mismatch (%s != %s), will build from scratch.", digest, storedDigest)
-			fakeChangeEvent = &pipeline.ChangeEvent{
-				Paths: []string{pipeline.ForceBuildPath},
-			}
+			bootstrapEvent.ShouldRebuild = true
 		}
 	} else {
-		fakeChangeEvent = &pipeline.ChangeEvent{
-			Paths: []string{pipeline.ForceBuildPath},
-		}
+		bootstrapEvent.ShouldRebuild = true
 	}
 
-	log.Println("Running pipeline...")
-	changeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent], 1024)
-	batchChangeEventQueue := make(pipeline.Queue[pipeline.ChangeEvent])
-	buildEventQueue := make(pipeline.Queue[pipeline.BuildEvent])
-
-	group, groupCtx := errgroup.WithContext(ctx)
-
-	// Watch for filesystem changes.
-	group.Go(pipeline.Watch(
-		groupCtx,
-		cfg.Verbose,
+	// Prepare pipeline nodes.
+	watchNode := pipeline.NewWatchNode(
 		rootDirs,
-		watchFilter,
-		changeEventQueue,
-		fakeChangeEvent,
-	))
-
-	// Accumulate change events and flush them as a single change event
-	// once there has been a sufficient period of inactivity.
-	// This avoids triggering multiple builds during the continuous change
-	// of many files (e.g. git clone / git checkout).
-	group.Go(pipeline.Batch(
-		groupCtx,
-		changeEventQueue,
-		batchChangeEventQueue,
+		watchFilter.IsAccepted,
+		cfg.Verbose,
+	)
+	decisionNode := pipeline.NewDecisionNode(
+		sourceFilter.IsAccepted,
+		resourceFilter.IsAccepted,
+	)
+	batcherNode := pipeline.NewBatcherNode(
 		cfg.BatchDuration,
-	))
-
-	// Build executable on new batch changes.
-	group.Go(pipeline.Build(
-		groupCtx,
-		cfg.MainDir,
-		cfg.BuildArgs.Value(),
-		batchChangeEventQueue,
-		buildEventQueue,
-		sourceFilter,
-		resourceFilter,
-		fakeBuildEvent,
-	))
-
-	// Run new executables when built.
-	group.Go(pipeline.Run(
-		groupCtx,
-		cfg.RunArgs.Value(),
-		buildEventQueue,
+	)
+	lifecycleNode := pipeline.NewLifecycleNode(
+		project.NewBuilder(cfg.MainDir, cfg.BuildArgs.Items()),
+		project.NewRunner(cfg.PWD, cfg.RunArgs.Items()),
+		opt.Wrap(cfg.BinaryFile, cfg.BinaryFile != ""),
 		cfg.ShutdownTimeout,
-	))
+	)
 
+	// Prepare pipeline events.
+	changeEvents := make(pipeline.Queue[pipeline.ChangeEvent], 32)
+	restartEvents := make(pipeline.Queue[pipeline.RestartEvent], 32)
+	batchedRestartEvents := make(pipeline.Queue[pipeline.RestartEvent], 1)
+	batchedRestartEvents <- bootstrapEvent // queue initial build and/or run
+
+	// Run pipeline nodes.
+	log.Println("Running pipeline...")
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		return watchNode.Run(groupCtx, changeEvents)
+	})
+	group.Go(func() error {
+		return decisionNode.Run(groupCtx, changeEvents, restartEvents)
+	})
+	group.Go(func() error {
+		return batcherNode.Run(groupCtx, restartEvents, batchedRestartEvents)
+	})
+	group.Go(func() error {
+		return lifecycleNode.Run(groupCtx, batchedRestartEvents)
+	})
 	if err := group.Wait(); err != nil {
 		return fmt.Errorf("pipeline error: %w", err)
 	}

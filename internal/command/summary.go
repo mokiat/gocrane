@@ -2,27 +2,26 @@ package command
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"encoding/hex"
 	"log"
+	"maps"
+	"slices"
 
 	"github.com/mokiat/gocrane/internal/project"
-
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 func printSummary(summary *project.Summary) {
-	visited := maps.Keys(summary.Visited)
+	visited := slices.Collect(maps.Keys(summary.Visited))
 	slices.Sort(visited)
-	errored := maps.Keys(summary.Errored)
+	errored := slices.Collect(maps.Keys(summary.Errored))
 	slices.Sort(errored)
-	omitted := maps.Keys(summary.Omitted)
+	omitted := slices.Collect(maps.Keys(summary.Omitted))
 	slices.Sort(omitted)
-	watchedDirs := maps.Keys(summary.WatchedDirs)
+	watchedDirs := slices.Collect(maps.Keys(summary.WatchedDirs))
 	slices.Sort(watchedDirs)
-	watchedSourceFiles := maps.Keys(summary.WatchedSourceFiles)
+	watchedSourceFiles := slices.Collect(maps.Keys(summary.WatchedSourceFiles))
 	slices.Sort(watchedSourceFiles)
-	watchedResourceFiles := maps.Keys(summary.WatchedResourceFiles)
+	watchedResourceFiles := slices.Collect(maps.Keys(summary.WatchedResourceFiles))
 	slices.Sort(watchedResourceFiles)
 
 	log.Printf("Visited %d files or folders", len(visited))
@@ -58,8 +57,8 @@ func printSummary(summary *project.Summary) {
 }
 
 func calculateDigest(summary *project.Summary) (string, error) {
-	sourceFiles := maps.Keys(summary.WatchedSourceFiles)
-	slices.Sort(sourceFiles)
+	sourceFiles := slices.Collect(maps.Keys(summary.WatchedSourceFiles))
+	slices.Sort(sourceFiles) // ensure consistent order for digest calculation
 
 	dig := sha256.New()
 	for _, file := range sourceFiles {
@@ -67,5 +66,5 @@ func calculateDigest(summary *project.Summary) (string, error) {
 			return "", err
 		}
 	}
-	return fmt.Sprintf("%x", dig.Sum(nil)), nil
+	return hex.EncodeToString(dig.Sum(nil)), nil
 }
