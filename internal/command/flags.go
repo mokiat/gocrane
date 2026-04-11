@@ -162,7 +162,7 @@ func newBatchDurationFlag(target *time.Duration) cli.Flag {
 	return &cli.DurationFlag{
 		Name:        "batch-duration",
 		Usage:       "amount of time to accumulate change events before triggering a build",
-		Value:       time.Second,
+		Value:       2 * time.Second,
 		Aliases:     []string{"bd"},
 		Sources:     cli.EnvVars("GOCRANE_BATCH_DURATION"),
 		Destination: target,
